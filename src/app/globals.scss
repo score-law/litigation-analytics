@@ -1,0 +1,58 @@
+
+:root {
+  --background-light: #FFFFFF;
+  --background-dark: #F7F7F7;
+  --foreground-dark: #333;
+  --highlight: #3362ad;
+
+  @media (max-width: 1200px) {
+    font-size: 16px;
+  }
+  @media (max-width: 992px) {
+    font-size: 14px;
+  }
+  @media (max-width: 768px) {
+    font-size: 12px;
+  }
+  @media (max-width: 480px) {
+    font-size: 10px;
+  }
+  @media (max-width: 320px) {
+    font-size: 8px;
+  }
+}
+
+html {
+  scrollbar-color: #888 #f1f1f1;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  color: var(--foreground-dark);
+  background: var(--background-light);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}
