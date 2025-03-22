@@ -4,6 +4,39 @@
   --background-dark: #F7F7F7;
   --foreground-dark: #333;
   --highlight: #3362ad;
+  
+  /* Professional color palette for legal analytics */
+  --primary-dark: #1a365d;  /* Deep blue */
+  --primary-main: #2a4365;  /* Medium blue */
+  --primary-light: #4a69bb;  /* Lighter blue */
+  
+  --neutral-dark: #2d3748;  /* Dark gray */
+  --neutral-medium: #4a5568; /* Medium gray */
+  --neutral-light: #a0aec0;  /* Light gray */
+  
+  --accent-main: #3182ce;   /* Accent blue */
+  --accent-hover: #2b6cb0;  /* Darker accent for hover */
+  
+  --background-page: #f7fafc; /* Off-white background */
+  --background-card: #ffffff; /* Card background */
+  
+  --text-primary: #1a202c;   /* Dark text */
+  --text-secondary: #4a5568; /* Medium text */
+  --text-muted: #718096;     /* Light text */
+  
+  --error: #e53e3e;          /* Error red */
+  --success: #38a169;        /* Success green */
+
+  /* Spacing variables */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  /* Shadow and depth */
+  --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --focused-shadow: 0 0 0 3px rgba(49, 130, 206, 0.3);
 
   @media (max-width: 1200px) {
     font-size: 16px;

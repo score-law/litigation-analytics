@@ -1,0 +1,140 @@
+/* Results Page Styles */
+
+.results-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: calc(100vh - 90px);
+  background: var(--background-page);
+  padding: var(--spacing-xl);
+}
+
+.results-card {
+  width: 100%;
+  background: var(--background-card);
+  border-radius: 15px;
+  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+  overflow: hidden;
+}
+
+.tab-container {
+  width: 100%;
+}
+
+/* Enhanced tab styling */
+.results-tabs {
+  /* Style overrides for MUI Tabs */
+  .MuiTabs-indicator {
+    background-color: var(--accent-main);
+    height: 3px;
+  }
+}
+
+.results-tab {
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin: 0 4px;
+  border-radius: 8px 8px 0 0;
+  position: relative;
+  
+  &.Mui-selected {
+    color: var(--accent-main) !important;
+    font-weight: 700;
+    font-size: 1.05rem;
+    background-color: rgba(49, 130, 206, 0.08);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+  }
+}
+
+.results-tab-panel {
+  padding: var(--spacing-lg);
+}
+
+/* Updated chart container with improved spacing and positioning */
+.chart-container {
+  margin: var(--spacing-lg) 0;
+  height: 450px;
+  width: 95%; /* Reduced width to prevent overflow */
+  overflow: visible; /* Allows labels to extend beyond container */
+  margin-left: auto; /* Center the container */
+  margin-right: auto;
+}
+
+.chart-controls {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.no-data {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px;
+  color: var(--text-muted);
+}
+
+.breakdown-section {
+  margin-top: var(--spacing-xl); /* Increased spacing above sections */
+}
+
+/* Updated breakdown title with smaller font and more spacing */
+.breakdown-title {
+  margin-top: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg); /* Increased margin to push title further from graph */
+  color: var(--primary-dark);
+  font-size: 1rem; /* Smaller font size */
+  letter-spacing: 0.3px; /* Slightly more spaced out letters */
+  padding-left: var(--spacing-lg); /* Align with chart content */
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+  .results-container {
+    padding: var(--spacing-md);
+  }
+  
+  .chart-container {
+    width: 92%; /* Slightly narrower on medium screens */
+  }
+
+  .breakdown-title {
+    font-size: 0.95rem;
+    margin-bottom: var(--spacing-md);
+  }
+}
+
+@media (max-width: 600px) {
+  .results-container {
+    padding: var(--spacing-sm);
+  }
+  
+  .results-card {
+    box-shadow: none;
+    border-radius: 0;
+  }
+  
+  .chart-container {
+    height: auto; /* Adjusted height for small screens */
+    padding: 0 var(--spacing-sm);
+    width: 90%; /* Even narrower on small screens */
+  }
+
+  .chart-controls {
+    flex-direction: column;
+  }
+  
+  .breakdown-title {
+    font-size: 0.9rem;
+    margin-bottom: var(--spacing-sm);
+    padding-left: var(--spacing-sm);
+  }
+}
