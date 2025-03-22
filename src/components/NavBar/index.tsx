@@ -10,7 +10,6 @@ export default function NavBar() {
             <nav>
                 <ul>
                     <li><Link href="/search">Search</Link></li>
-                    <li><Link href="/search/rankings/total-cases">Rankings</Link></li>
                 </ul>
             </nav>
         </header>

@@ -1,0 +1,133 @@
+/* 
+ * BarChartDisplay Component Styles
+ * 
+ * These styles provide standardized styling for the chart component
+ * across the application.
+ */
+
+ .chart-display-container {
+  width: 70vw !important;
+  height: 50vh;
+  margin: var(--spacing-md) 0;
+  
+  /* Ensure the container properly holds the chart */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  
+  /* Allow tooltips and axis labels to overflow the container */
+  overflow: visible;
+  
+  /* Improve chart appearance */
+  & .MuiChartsAxis-label {
+    font-weight: 600;
+    font-size: 14px;
+    fill: var(--text-primary);
+  }
+  
+  & .MuiChartsAxis-tickLabel {
+    font-size: 12px;
+    fill: var(--text-secondary);
+  }
+  
+  & .MuiChartsLegend-root {
+    padding-top: 10px;
+    padding-bottom: 15px;
+  }
+  
+  & .MuiChartsLegend-label {
+    font-size: 13px;
+    padding-left: 5px;
+  }
+  
+  /* Tooltip styling */
+  & .MuiChartTooltip-table {
+    background-color: var(--background-card);
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  /* Animation for switching between view modes */
+  &.chart-transition {
+    transition: opacity 0.8s ease-in-out;
+    opacity: 0.3;
+  }
+  
+  /* Comparative view styles */
+  &.comparative-view {
+    .reference-line-container {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 0;
+      width: 2px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      
+      .reference-line {
+        width: 2px;
+        background-color: rgba(0, 0, 0, 0.3);
+        height: calc(100% - 60px);
+        margin-top: 30px;
+      }
+      
+      .reference-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 5px;
+        white-space: nowrap;
+        background-color: rgba(255, 255, 255, 0.7);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+    }
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+  .chart-display-container {
+    width: 95%;
+    margin-left: auto;
+    margin-right: auto;
+    
+    & .MuiChartsAxis-label {
+      font-size: 12px;
+    }
+    
+    & .MuiChartsAxis-tickLabel {
+      font-size: 11px;
+    }
+    
+    & .MuiChartsLegend-label {
+      font-size: 12px;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .chart-display-container {
+    width: 90%;
+    
+    & .MuiChartsAxis-label {
+      font-size: 11px;
+    }
+    
+    & .MuiChartsAxis-tickLabel {
+      font-size: 10px;
+    }
+    
+    & .MuiChartsLegend-root {
+      flex-wrap: wrap;
+      justify-content: center;
+      padding-bottom: 10px;
+    }
+  }
+}

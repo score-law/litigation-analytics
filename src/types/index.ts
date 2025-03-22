@@ -3,7 +3,7 @@ import { RowDataPacket } from 'mysql2';
 // Data types for dispositions tab
 export interface DispositionData {
   type: string;
-  count: number;
+  ratio: number;
   trialTypeBreakdown: {
     bench: number;
     jury: number;
@@ -41,6 +41,9 @@ export interface MotionData {
     other: number;
   };
 }
+
+// View mode type for toggling between objective and comparative views
+export type ViewMode = 'objective' | 'comparative';
 
 // Overall search result data type
 export interface SearchResultData {

@@ -1,29 +1,30 @@
-/* Results Page Styles */
+/* 
+ * Results Page Styles
+ *
+ * This file contains styles for the litigation analytics results page.
+ * It defines the layout and appearance of the tabbed interface, content cards,
+ * graph sections, and interactive controls.
+ */
 
+/* Main container - full width and height */
 .results-container {
   display: flex;
   flex-direction: column;
   width: 100%;
   min-height: calc(100vh - 90px);
-  background: var(--background-page);
-  padding: var(--spacing-xl);
+  background: var(--background-light);
+  padding: 0;
 }
 
-.results-card {
-  width: 100%;
-  background: var(--background-card);
-  border-radius: 15px;
-  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
-  overflow: hidden;
-}
-
+/* Tab container with light background */
 .tab-container {
   width: 100%;
+  background: var(--background-light);
+  border-bottom: 1px solid var(--border-light);
 }
 
 /* Enhanced tab styling */
 .results-tabs {
-  /* Style overrides for MUI Tabs */
   .MuiTabs-indicator {
     background-color: var(--accent-main);
     height: 3px;
@@ -32,41 +33,120 @@
 
 .results-tab {
   font-weight: 500;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   margin: 0 4px;
-  border-radius: 8px 8px 0 0;
-  position: relative;
+  padding: var(--spacing-sm) var(--spacing-md);
   
   &.Mui-selected {
     color: var(--accent-main) !important;
-    font-weight: 700;
-    font-size: 1.05rem;
-    background-color: rgba(49, 130, 206, 0.08);
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+    font-weight: 600;
+    background-color: rgba(49, 130, 206, 0.05);
   }
 }
 
 .results-tab-panel {
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-sm);
+  background-color: var(--background-light);
 }
 
-/* Updated chart container with improved spacing and positioning */
+/* Content Card - refined styling for better focus */
+.graph-card {
+  width: 70%;
+  margin: 0 auto;
+  margin-top: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  background: var(--background-card);
+  border-radius: 5px;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Graph section - main focus area */
+.graph-section {
+  width: 100%;
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 450px;
+}
+
+.enhanced-toggle-button, .enhanced-category-toggle {
+  padding: 5px 10px !important;
+  
+  &.active {
+    border-bottom: 3px solid var(--accent-main);
+
+    .toggle-button-content {
+      color: var(--accent-main);
+      font-weight: 700;
+    }
+  }
+}
+
+/* Interaction section - visually separated area for controls */
+.interaction-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid rgb(217, 217, 217);
+  background-color: rgba(0, 0, 0, 0.02);
+  gap: var(--spacing-md);
+}
+
+/* Control groups - visual separation for related controls */
+.control-group {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.6);
+  margin-right: var(--spacing-md);
+  
+  &:not(:last-child) {
+    margin-right: var(--spacing-md);
+  }
+}
+
+/* Chart container with improved sizing and positioning */
 .chart-container {
-  margin: var(--spacing-lg) 0;
-  height: 450px;
-  width: 95%; /* Reduced width to prevent overflow */
-  overflow: visible; /* Allows labels to extend beyond container */
-  margin-left: auto; /* Center the container */
-  margin-right: auto;
+  margin: var(--spacing-md) 0;
+  height: 60vh;
+  width: 100%;
+  overflow: visible;
+  position: relative;
 }
 
+/* Multiple charts in a single tab */
+.breakdown-section {
+  width: 100%;
+  &:not(:first-child) {
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-md);
+  }
+}
+
+/* Title for breakdown sections */
+.breakdown-title {
+  margin-top: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  letter-spacing: 0.3px;
+  padding-left: var(--spacing-lg);
+}
+
+/* Controls for charts */
 .chart-controls {
   display: flex;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-md);
   flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
+/* Empty state styling */
 .no-data {
   display: flex;
   justify-content: center;
@@ -75,57 +155,67 @@
   color: var(--text-muted);
 }
 
-.breakdown-section {
-  margin-top: var(--spacing-xl); /* Increased spacing above sections */
-}
-
-/* Updated breakdown title with smaller font and more spacing */
-.breakdown-title {
-  margin-top: var(--spacing-lg);
-  margin-bottom: var(--spacing-lg); /* Increased margin to push title further from graph */
-  color: var(--primary-dark);
-  font-size: 1rem; /* Smaller font size */
-  letter-spacing: 0.3px; /* Slightly more spaced out letters */
-  padding-left: var(--spacing-lg); /* Align with chart content */
-}
-
-.loading-container {
+/* Loading and error states */
+.loading-container, .error-container {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 400px;
+  width: 100%;
+  background: var(--background-light);
+}
+
+.error-container {
+  padding: var(--spacing-lg);
 }
 
 /* Responsive adjustments */
 @media (max-width: 960px) {
-  .results-container {
-    padding: var(--spacing-md);
+  .content-card {
+    width: 92%;
+    padding: var(--spacing-sm);
+  }
+  
+  .graph-section {
+    padding: var(--spacing-sm);
+    min-height: 400px;
   }
   
   .chart-container {
-    width: 92%; /* Slightly narrower on medium screens */
+    height: 400px;
   }
 
   .breakdown-title {
     font-size: 0.95rem;
     margin-bottom: var(--spacing-md);
   }
+  
+  .interaction-section {
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+  
+  .control-group {
+    width: 100%;
+    margin-right: 0;
+    margin-bottom: var(--spacing-sm);
+  }
 }
 
 @media (max-width: 600px) {
-  .results-container {
-    padding: var(--spacing-sm);
+  .content-card {
+    width: 95%;
+    border-radius: 12px;
+    margin-top: var(--spacing-sm);
   }
   
-  .results-card {
-    box-shadow: none;
-    border-radius: 0;
+  .graph-section {
+    min-height: 350px;
   }
   
   .chart-container {
-    height: auto; /* Adjusted height for small screens */
-    padding: 0 var(--spacing-sm);
-    width: 90%; /* Even narrower on small screens */
+    height: 350px;
+    margin: var(--spacing-sm) 0;
   }
 
   .chart-controls {
@@ -136,5 +226,23 @@
     font-size: 0.9rem;
     margin-bottom: var(--spacing-sm);
     padding-left: var(--spacing-sm);
+  }
+  
+  .interaction-section {
+    padding: var(--spacing-sm);
+    align-items: center;
+  }
+  
+  .results-tab-panel {
+    padding: var(--spacing-xs) var(--spacing-xs);
+  }
+  
+  .results-tab {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.9rem;
+  }
+  
+  .control-group {
+    padding: var(--spacing-xs) var(--spacing-sm);
   }
 }
