@@ -45,7 +45,7 @@ const SentencesTab = ({ data, viewMode }: SentencesTabProps) => {
       datasets: [
         {
           data: sortedData.map(item => item.percentage),
-          label: 'Type Frequency',
+          label: 'Sentence Frequency',
           color: 'var(--accent-main)',
           valueFormatter
         }

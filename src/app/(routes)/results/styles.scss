@@ -51,7 +51,7 @@
 
 /* Content Card - refined styling for better focus */
 .graph-card {
-  width: 70%;
+  width: 85%;
   margin: 0 auto;
   margin-top: var(--spacing-md);
   margin-bottom: var(--spacing-md);
@@ -74,12 +74,16 @@
 
 .enhanced-toggle-button, .enhanced-category-toggle {
   padding: 5px 10px !important;
+
+  .toggle-button-content {
+    color: var(--accent-main);
+  }
   
   &.active {
     border-bottom: 3px solid var(--accent-main);
 
     .toggle-button-content {
-      color: var(--accent-main);
+      color: black;
       font-weight: 700;
     }
   }

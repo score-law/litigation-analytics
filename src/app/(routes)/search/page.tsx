@@ -28,6 +28,7 @@ interface Judge {
 }
 
 interface Charge {
+  severity: number;
   id: number;
   name: string;
 }
@@ -198,6 +199,7 @@ const fetchCharges = async (): Promise<Charge[]> => {
     const data = await response.json();
     // Transform any row { charge_id, name } into { id, name }
     return data.map((c: any) => ({
+      severity: c.severity,
       id: c.charge_id,
       name: c.name
     }));
@@ -275,13 +277,17 @@ const SearchForm: React.FC = () => {
 
     // Add each charge ID
     if (validCharges.length > 0) {
-      let chargesString = '';
+      let maxSeverityCharge = '';
+      let maxSeverity = 0;
       validCharges.forEach(charge => {
         if (charge) {
-          chargesString += charge.id + ','; // Comma-separated list of charge IDs
+          if (charge.severity >= maxSeverity) {
+            maxSeverity = charge.severity;
+            maxSeverityCharge = charge.id.toString();
+          }
         }
       });
-      params.append('chargeId', chargesString);
+      params.append('chargeId', maxSeverityCharge);
     }
 
     // Redirect to /results with the query string

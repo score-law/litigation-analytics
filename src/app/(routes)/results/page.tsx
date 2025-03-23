@@ -41,6 +41,12 @@ const ResultsPage = () => {
   const [averageData, setAverageData] = useState<SearchResultData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // State to track the parameters used in the final query
+  const [finalParams, setFinalParams] = useState<{
+    courtId: number;
+    judgeId: number;
+    chargeId: number;
+  } | null>(null);
   
   // Add view mode state for each tab (independent toggles)
   const [dispositionsViewMode, setDispositionsViewMode] = useState<ViewMode>('objective');
@@ -63,37 +69,44 @@ const ResultsPage = () => {
       
       try {
         // Extract parameters from URL
-        //const courtId = searchParams.get('courtId') || '0';
-        const courtId = 0; //!Temporary
+        const courtId = searchParams.get('courtId') || '0';
         const judgeId = searchParams.get('judgeId') || '0';
         const chargeId = searchParams.get('chargeId') || '0';
         
-        // Build the API URL with query parameters for filtered data
-        const apiUrl = `/api/specification?courtId=${courtId}&judgeId=${judgeId}&chargeId=${chargeId}`;
+        // Build the API URL with query parameters for the relevant specification
+        const apiUrl = `/api/relevant_specification?courtId=${courtId}&judgeId=${judgeId}&chargeId=${chargeId}`;
         
-        // Build the API URL for average data (only filtered by chargeId)
-        const averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=${chargeId}`;
-        
-        // Fetch both datasets in parallel
-        const [filteredResponse, averageResponse] = await Promise.all([
-          fetch(apiUrl),
-          fetch(averageApiUrl)
-        ]);
+        // Fetch the relevant specification data
+        const filteredResponse = await fetch(apiUrl);
         
         if (!filteredResponse.ok) {
-          throw new Error(`API error: ${filteredResponse.status}`);
+          const errorData = await filteredResponse.json();
+          throw new Error(errorData.error || `API error: ${filteredResponse.status}`);
         }
+        
+        const filteredApiData = await filteredResponse.json();
+        
+        // Extract the parameters that were actually used
+        const usedParams = filteredApiData.usedParams || { courtId: 0, judgeId: 0, chargeId: 0 };
+        setFinalParams(usedParams);
+        
+        // Build the API URL for average data (only filtered by chargeId if it was used)
+        const averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=${
+          usedParams.chargeId !== 0 ? usedParams.chargeId : '0'
+        }`;
+        
+        // Fetch the average data
+        const averageResponse = await fetch(averageApiUrl);
         
         if (!averageResponse.ok) {
           throw new Error(`API error: ${averageResponse.status}`);
         }
         
-        // Parse both API responses
-        const filteredApiData: ApiResponse = await filteredResponse.json();
-        const averageApiData: ApiResponse = await averageResponse.json();
+        const averageApiData = await averageResponse.json();
 
         console.log('Filtered API response:', filteredApiData);
         console.log('Average API response:', averageApiData);
+        console.log('Used parameters:', usedParams);
         
         // Transform both API responses
         const transformedData = transformApiResponseToSearchResultData(filteredApiData);
@@ -103,7 +116,11 @@ const ResultsPage = () => {
         setAverageData(transformedAverageData);
       } catch (error) {
         console.error('Error fetching data:', error);
-        setError('Failed to fetch data. Please try again later.');
+        if (error instanceof Error) {
+          setError(`Failed to fetch data: ${error.message}`);
+        } else {
+          setError('Failed to fetch data. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
@@ -215,11 +232,11 @@ const ResultsPage = () => {
                   value="sentences"
                   className="results-tab"
                 />
-                <Tab 
+                {/*<Tab 
                   label="Bail Decisions" 
                   value="bail"
                   className="results-tab"
-                />
+                />*/}
                 <Tab 
                   label="Motions" 
                   value="motions"
@@ -322,6 +339,17 @@ const ResultsPage = () => {
               )}
             </TabPanel>
           </TabContext>
+            {finalParams && (
+              <Box className="params-info" sx={{ mb: 2, px: 2 }}>
+                <Typography variant="body2" color="textSecondary">
+                  Showing data based on: 
+                  {finalParams.judgeId !== 0 && ` Judge ID ${finalParams.judgeId}`}
+                  {finalParams.courtId !== 0 && ` Court ID ${finalParams.courtId}`}
+                  {finalParams.chargeId !== 0 && ` Charge ID ${finalParams.chargeId}`}
+                  {finalParams.judgeId === 0 && finalParams.courtId === 0 && finalParams.chargeId === 0 && ' All cases'}
+                </Typography>
+              </Box>
+            )}
         </Box>
       )}
     </div>

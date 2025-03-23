@@ -19,46 +19,35 @@ export async function GET(request: NextRequest) {
       const searchParams = request.nextUrl.searchParams;
       const courtId = parseInt(searchParams.get('courtId') || '0', 10);
       const judgeId = parseInt(searchParams.get('judgeId') || '0', 10);
-      let chargeId = 0;
-      const chargeIds = searchParams.get('chargeId');
-      if (chargeIds) {
-        const firstCharge = chargeIds.split(',')[0];
-        if (firstCharge) {
-          chargeId = parseInt(firstCharge, 10);
-        }
-      }
+      const chargeId = parseInt(searchParams.get('chargeId') || '0', 10);
       const prosecutionId = parseInt(searchParams.get('prosecutionId') || '0', 10);
       const chargeSeverity = parseInt(searchParams.get('chargeSeverity') || '0', 10);
       const trialCategory = searchParams.get('trialCategory') || 'any';
 
       console.log('courtId:', courtId);
-        console.log('judgeId:', judgeId);
-        console.log('chargeId:', chargeId);
-        console.log('prosecutionId:', prosecutionId);
-        console.log('chargeSeverity:', chargeSeverity);
-        console.log('trialCategory:', trialCategory);
+      console.log('judgeId:', judgeId);
+      console.log('chargeId:', chargeId);
+      console.log('prosecutionId:', prosecutionId);
+      console.log('chargeSeverity:', chargeSeverity);
+      console.log('trialCategory:', trialCategory);
 
-  
       const specificationQuery = `
         SELECT * FROM specification
         WHERE
-          (court_id = ? OR ? = 0) AND
-          (judge_id = ? OR ? = 0) AND
-          (charge_id = ? OR ? = 0) AND
-          (prosecution_id = ? OR ? = 0) AND
-          (charge_severity = ? OR ? = 0) AND
-          (trial_category = ? OR ? = 'any')
+          court_id = ? AND
+          judge_id = ? AND
+          charge_id = ? AND
+          charge_severity = 0
       `;
       const specParams = [
-        courtId, courtId,
-        judgeId, judgeId,
-        chargeId, chargeId,
-        prosecutionId, prosecutionId,
-        chargeSeverity, chargeSeverity,
-        trialCategory, trialCategory
+        courtId,
+        judgeId,
+        chargeId,
       ];
   
       const specificationData = await query<SpecificationData[]>(specificationQuery, specParams);
+
+      console.log('specificationData:', specificationData);
   
       if (!specificationData || specificationData.length === 0) {
         return NextResponse.json({ specification: [], motion_data: [] });

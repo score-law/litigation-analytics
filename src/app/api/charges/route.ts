@@ -4,7 +4,7 @@ import { RowDataPacket } from 'mysql2/promise';
 
 export async function GET() {
   try {
-    const charges = await query<any & RowDataPacket[]>('SELECT DISTINCT name, charge_id FROM charges GROUP BY name');
+    const charges = await query<any & RowDataPacket[]>('SELECT DISTINCT name, charge_id, severity FROM charges GROUP BY name');
     return NextResponse.json(charges);
   } catch (error) {
     console.error('Database error:', error);
