@@ -5,7 +5,7 @@ import "./globals.scss";
 //components
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
-import PasswordProtection from "@/components/PasswordProtection";
+//import PasswordProtection from "@/components/PasswordProtection";
 
 export const metadata: Metadata = {
   title: "Score",
@@ -36,12 +36,11 @@ export default function RootLayout({
           `}
         </Script>
         
-        <PasswordProtection>
+        {/*<PasswordProtection>*/}
           <NavBar />
           <main>{children}</main>
           <Footer />
-        </PasswordProtection>
-        
+        {/*</PasswordProtection>*/}
       </body>
     </html>
   );
