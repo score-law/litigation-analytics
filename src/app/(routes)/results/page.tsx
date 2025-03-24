@@ -26,7 +26,7 @@ import {
   calculateComparativeBailData,
   calculateComparativeMotionsData
 } from '@/utils';
-import { SearchResultData, ApiResponse, ViewMode } from '@/types';
+import { SearchResultData, ViewMode } from '@/types';
 import DispositionsTab from '@/components/Dispositions';
 import SentencesTab from '@/components/Sentences';
 import BailTab from '@/components/Bail';

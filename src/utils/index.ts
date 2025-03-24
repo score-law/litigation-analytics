@@ -14,7 +14,6 @@ import {
   MotionData,
   SearchResultData,
   SpecificationData,
-  ApiMotionData
 } from '@/types';
 
 /**
@@ -56,9 +55,6 @@ export function transformDispositionsData(rawData: ApiResponse): DispositionData
       disp.trial.none = disp.ratio;
     });
   }
-  
-  // Calculate total dispositions (sum of all disposition counts)
-  const totalDispositions = dispositions.reduce((sum, disp) => sum + disp.ratio, 0);
   
   // Transform to final format with ratios
   const dispositionData = dispositions.map(disp => {

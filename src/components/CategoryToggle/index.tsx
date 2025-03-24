@@ -5,7 +5,7 @@
  * in chart visualizations. It uses MUI ToggleButton with enhanced visual state indicators.
  */
 import React from 'react';
-import { ToggleButton, Box, Typography } from '@mui/material';
+import { ToggleButton, Box } from '@mui/material';
 
 interface CategoryToggleProps {
   enabled: boolean;

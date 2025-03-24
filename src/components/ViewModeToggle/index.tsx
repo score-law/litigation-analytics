@@ -5,7 +5,7 @@
  * It uses MUI ToggleButtonGroup for a clean, accessible UI element with enhanced visual feedback.
  */
 import React from 'react';
-import { ToggleButtonGroup, ToggleButton, Typography, Box } from '@mui/material';
+import { ToggleButtonGroup, ToggleButton, Box } from '@mui/material';
 import { ViewMode } from '@/types';
 
 interface ViewModeToggleProps {

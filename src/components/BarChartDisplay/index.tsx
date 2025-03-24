@@ -5,9 +5,8 @@
  * the application. It wraps MUI's BarChart with consistent styling and configuration
  * while allowing for flexible data input and customization.
  */
-
+'use client'
 import { BarChart } from '@mui/x-charts/BarChart';
-import { ViewMode } from '@/types';
 import { useRef, useEffect } from 'react';
 import './styles.scss';
 
@@ -49,15 +48,8 @@ interface BarChartDisplayProps {
     className?: string;
 }
 
-// Helper function to validate if a string is a valid hex color
-const isValidColor = (color: any): boolean => {
-  if (!color || typeof color !== 'string') return false;
-  // Check if it's a hex color with # prefix
-  return /^#([0-9A-F]{3}){1,2}$/i.test(color);
-};
-
 // Create a custom value formatter for comparative mode
-const createComparativeFormatter = (baseFormatter?: (value: number | null) => string) => {
+const createComparativeFormatter = () => {
   return (transformedValue: number | null) => {
     if (transformedValue === null || transformedValue === undefined) return '';
 
@@ -74,28 +66,17 @@ const createComparativeFormatter = (baseFormatter?: (value: number | null) => st
 };
 
 const BarChartDisplay = ({
-    chartData,
-    layout = 'horizontal',
-    xAxisLabel = '',
-    viewMode = 'objective',
-    margin = { top: 30, bottom: 20, left: 120, right: 50 },
-    className = '',
-  }: BarChartDisplayProps) => {
-  // If no data, display an empty chart or return null
-  if (
-    !chartData ||
-    !chartData.labels ||
-    chartData.labels.length === 0 ||
-    !chartData.datasets ||
-    chartData.datasets.length === 0
-  ) {
-    return null;
-  }
-
-  // Reference for animation
+  chartData,
+  layout = 'horizontal',
+  xAxisLabel = '',
+  viewMode = 'objective',
+  margin = { top: 30, bottom: 20, left: 120, right: 50 },
+  className = '',
+}: BarChartDisplayProps) => {
+  // Reference for animation - moved before conditional return
   const chartRef = useRef<HTMLDivElement>(null);
 
-  // Apply animation on view mode change
+  // Apply animation on view mode change - moved before conditional return
   useEffect(() => {
     if (chartRef.current) {
       chartRef.current.classList.add('chart-transition');
@@ -108,6 +89,17 @@ const BarChartDisplay = ({
       return () => clearTimeout(timer);
     }
   }, [viewMode]);
+
+  // If no data, display an empty chart or return null
+  if (
+    !chartData ||
+    !chartData.labels ||
+    chartData.labels.length === 0 ||
+    !chartData.datasets ||
+    chartData.datasets.length === 0
+  ) {
+    return null;
+  }
 
   // Create safe versions of datasets with guaranteed valid colors
   const safeDatasets = chartData.datasets.map((dataset, index) => {
@@ -126,7 +118,7 @@ const BarChartDisplay = ({
     // Adjust the valueFormatter based on viewMode to retain above/below identification
     let valueFormatter = dataset.valueFormatter;
     if (viewMode === 'comparative') {
-      valueFormatter = createComparativeFormatter(valueFormatter);
+      valueFormatter = createComparativeFormatter();
     }
 
     return {
