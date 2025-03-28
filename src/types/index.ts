@@ -1,5 +1,23 @@
 import { RowDataPacket } from 'mysql2';
 
+export interface Court {
+  id: number;
+  name: string;
+}
+
+export interface Judge {
+  id: number;
+  name: string;
+  court_id?: number;
+}
+
+export interface Charge {
+  id: number;
+  name: string;
+  severity: number;
+  description?: string;
+}
+
 // Data types for dispositions tab
 export interface DispositionData {
   type: string;
@@ -66,7 +84,7 @@ export interface SpecificationData extends RowDataPacket {
   charge_id: number;
   court_id: number;
   charge_severity: number;
-  trial_category: 'no_trial' | 'jury_trial' | 'bench_trial';
+  trial_category: 'no_trial' | 'jury_trial' | 'bench_trial' | 'any';
   
   // Bail-related fields
   free_bail: number;
@@ -80,8 +98,10 @@ export interface SpecificationData extends RowDataPacket {
   // Disposition-related fields
   aquittals: number;
   dismissals: number;
+  not_responsible: number;
   nolle_prosequis: number;
   cwof: number;
+  responsible: number;
   guilty_plea: number;
   guilty: number;
   other: number;
@@ -105,9 +125,9 @@ export interface MotionTableData {
   specification_id: number;
   motion_id: string;
   accepted: number;
-  denied: number;
   no_action: number;
   advisement: number;
+  denied: number;
   unknown: number;
 }
 

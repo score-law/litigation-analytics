@@ -22,9 +22,6 @@ const BailTab = ({ data, viewMode }: BailTabProps) => {
       return { labels: [], datasets: [] };
     }
     
-    // Sort data by count in descending order
-    const sortedData = [...data].sort((a, b) => b.count - a.count);
-    
     // Create value formatter based on view mode
     const valueFormatter = (value: number | null) => {
       if (value === null) return '';
@@ -41,10 +38,10 @@ const BailTab = ({ data, viewMode }: BailTabProps) => {
     };
     
     return {
-      labels: sortedData.map(item => item.type),
+      labels: data.map(item => item.type),
       datasets: [
         {
-          data: sortedData.map(item => item.count),
+          data: data.map(item => item.count),
           label: 'Count',
           color: 'var(--accent-main)',
           valueFormatter

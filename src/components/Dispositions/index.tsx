@@ -1,110 +1,109 @@
-/**
- * Dispositions Tab Component
- * 
- * This component displays disposition data through horizontal bar charts.
- * It shows the count of each disposition type and a breakdown by trial types.
- */
-
-import React, { useMemo } from 'react';
-import { Typography, Box } from '@mui/material';
+import React, { useMemo, useState } from 'react';
+import { Typography, Box, Alert } from '@mui/material';
 import { DispositionData, ViewMode } from '@/types';
 import BarChartDisplay from '@/components/BarChartDisplay';
 
 interface DispositionsTabProps {
   data: DispositionData[];
   viewMode: ViewMode;
-  categoriesEnabled: boolean;
+  trialTypeFilter: string;
 }
 
-const DispositionsTab = ({ data, viewMode, categoriesEnabled }: DispositionsTabProps) => {
+const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabProps) => {
 
-  // Process data for the trial type breakdown chart
+  // Create value formatter based on view mode
+  const valueFormatter = (value: number | null, trialType?: string) => {
+    if (value === null) return '';
+    if (viewMode === 'comparative') {
+      if (Math.abs(value - 1) < 0.05)
+        return 'Average';
+      return value > 1
+        ? `${Math.abs((value - 1) * 100).toFixed(0)}% above average`
+        : `${Math.abs((value - 1) * 100).toFixed(0)}% below average`;
+    } else {
+      const trialTypeLabel = trialType 
+        ? ` at ${trialType === 'bench' ? 'bench trial' : trialType === 'jury' ? 'jury trial' : 'no trial'}`
+        : '';
+      return `${(value * 100).toFixed(0)}% of dispositions${trialTypeLabel}`;
+    }
+  };
+
+  console.log('DispositionsTab data:', data);
+  console.log('viewMode:', viewMode);
+  console.log('trialTypeFilter:', trialTypeFilter);
+
+  // Process data for the chart
   const breakdownChartData = useMemo(() => {
     if (!data || data.length === 0) {
       return { labels: [], datasets: [] };
     }
 
-    // Sort data by count in descending order
-    const sortedData = [...data].sort((a, b) => b.ratio - a.ratio);
-
-    // Create value formatter based on view mode
-    const valueFormatter = (value: number | null) => {
-      if (value === null) return '';
-      if (viewMode === 'comparative') {
-        if (Math.abs(value - 1) < 0.05) return 'Average';
-        const percent = Math.abs((value - 1) * 100).toFixed(0);
-        return value > 1
-          ? `${percent}% above average`
-          : `${percent}% below average`;
-      } else {
-        return `${Math.abs((value) * 100).toFixed(0)}% of Total Cases`;
+    // Create labels from disposition types
+    const labels = data.map(item => item.type);
+    console.log('Chart labels:', labels);
+    
+    let datasets = [];
+    
+    if (trialTypeFilter === "all") {
+      // Show total ratios without breaking down by trial type
+      datasets = [
+        {
+          label: 'Total',
+          data: data.map(item => item.ratio),
+          backgroundColor: '#805AD5', // Purple for total values
+          valueFormatter: (value: number | null) => valueFormatter(value)
+        }
+      ];
+    } else {
+      // Filter to specific trial type
+      let trialTypeKey: 'bench' | 'jury' | 'none' = 'none';
+      let color = '#E53E3E'; // Default red for 'none'
+      
+      if (trialTypeFilter === 'bench') {
+        trialTypeKey = 'bench';
+        color = '#3182CE'; // Blue
+      } else if (trialTypeFilter === 'jury') {
+        trialTypeKey = 'jury';
+        color = '#38A169'; // Green
       }
-    };
-
-    // If categories are disabled, aggregate the trial type data
-    if (!categoriesEnabled) {
-      return {
-        labels: sortedData.map((item) => item.type),
-        datasets: [
-          {
-            data: sortedData.map((item) => 
-              item.trialTypeBreakdown.jury + 
-              item.trialTypeBreakdown.bench + 
-              item.trialTypeBreakdown.none
-            ),
-            label: 'All Trials',
-            valueFormatter,
-          }
-        ],
-      };
+      
+      datasets = [
+        {
+          label: trialTypeFilter === 'bench' ? 'Bench Trial' : 
+                 trialTypeFilter === 'jury' ? 'Jury Trial' : 'No Trial',
+          data: data.map(item => item.trialTypeBreakdown[trialTypeKey]),
+          backgroundColor: color,
+          valueFormatter: (value: number | null) => valueFormatter(value, trialTypeKey)
+        }
+      ];
     }
-
-    // Categories are enabled, show breakdown by trial type
+    
     return {
-      labels: sortedData.map((item) => item.type),
-      datasets: [
-        {
-          data: sortedData.map((item) => item.trialTypeBreakdown.jury),
-          label: 'Jury Trial',
-          // Conditionally stack only in objective mode
-          stack: viewMode === 'comparative' ? undefined : 'stack1',
-          valueFormatter,
-        },
-        {
-          data: sortedData.map((item) => item.trialTypeBreakdown.bench),
-          label: 'Bench Trial',
-          stack: viewMode === 'comparative' ? undefined : 'stack1',
-          valueFormatter,
-        },
-        {
-          data: sortedData.map((item) => item.trialTypeBreakdown.none),
-          label: 'No Trial',
-          stack: viewMode === 'comparative' ? undefined : 'stack1',
-          valueFormatter,
-        },
-      ],
+      labels,
+      datasets
     };
-  }, [data, viewMode, categoriesEnabled]); // Added categoriesEnabled to dependencies
+  }, [data, viewMode, trialTypeFilter]);
 
   // If no data, display a message
   if (!data || data.length === 0) {
     return (
-      <Box className="no-data-container">
-        <Typography variant="body1">No disposition data available.</Typography>
+      <Box sx={{ mt: 2, p: 2 }}>
+        <Typography>No disposition data available for this selection.</Typography>
       </Box>
     );
   }
 
   return (
-    <div className="dispositions-container">
-      <div className="chart-section">
-        <BarChartDisplay 
-          chartData={breakdownChartData} 
-          xAxisLabel={viewMode === 'comparative' ? 'Types Relative to Average' : 'Type Ratio'}
+    <Box sx={{ mt: 2 }}>
+      <Box sx={{ height: Math.max(300, data.length * 50) }}>
+        <BarChartDisplay
+          chartData={breakdownChartData}
+          layout="horizontal"
+          xAxisLabel={viewMode === 'comparative' ? 'Compared to Average' : 'Percentage of Total Cases'}
           viewMode={viewMode}
         />
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 

@@ -10,29 +10,22 @@
  */
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { 
-  Box, 
-  Tab, 
-  Tabs, 
-  Typography, 
-  Paper,
-  CircularProgress
-} from '@mui/material';
+import { Box, Tab, Tabs, Typography, Paper, CircularProgress, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { TextField, InputAdornment } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { TabContext, TabPanel } from '@mui/lab';
-import { 
-  transformApiResponseToSearchResultData,
-  calculateComparativeDispositionsData,
-  calculateComparativeSentencesData,
-  calculateComparativeBailData,
-  calculateComparativeMotionsData
-} from '@/utils';
-import { SearchResultData, ViewMode } from '@/types';
+import { calculateComparativeDispositionsData, calculateComparativeSentencesData, 
+calculateComparativeBailData, calculateComparativeMotionsData } from '@/utils/dataComparators';
+import { transformApiResponseToSearchResultData } from '@/utils/dataTransformers';
+import { getCourtName, getJudgeName, getChargeName } from '@/utils/nameUtils';
+import { SearchResultData, ViewMode, Charge } from '@/types';
 import DispositionsTab from '@/components/Dispositions';
 import SentencesTab from '@/components/Sentences';
 import BailTab from '@/components/Bail';
 import MotionsTab from '@/components/Motions';
 import ViewModeToggle from '@/components/ViewModeToggle';
-import CategoryToggle from '@/components/CategoryToggle';
+import CategoryFilter from '@/components/CategoryFilter';
 import './styles.scss';
 
 const ResultsPage = () => {
@@ -54,10 +47,39 @@ const ResultsPage = () => {
   const [bailViewMode, setBailViewMode] = useState<ViewMode>('objective');
   const [motionsViewMode, setMotionsViewMode] = useState<ViewMode>('objective');
   
-  // Add category toggle states (all default to true/enabled)
-  const [dispositionsCategoriesEnabled, setDispositionsCategoriesEnabled] = useState(true);
-  const [motionsPartiesEnabled, setMotionsPartiesEnabled] = useState(true);
-  const [motionsTypesEnabled, setMotionsTypesEnabled] = useState(true);
+  // Update category filter states (from boolean toggles to string selectors)
+  const [dispositionsTrialType, setDispositionsTrialType] = useState<string>("all");
+  const [sentenceDisplayMode, setSentenceDisplayMode] = useState<string>("frequency");
+  const [motionsPartyType, setMotionsPartyType] = useState<string>("all");
+  
+  // State for accordion expansion
+  const [courtAccordionExpanded, setCourtAccordionExpanded] = useState<boolean>(false);
+  const [judgeAccordionExpanded, setJudgeAccordionExpanded] = useState<boolean>(false);
+  const [chargeAccordionExpanded, setChargeAccordionExpanded] = useState<boolean>(false);
+
+  // State for search terms
+  const [courtSearchTerm, setCourtSearchTerm] = useState('');
+  const [judgeSearchTerm, setJudgeSearchTerm] = useState('');
+  const [chargeSearchTerm, setChargeSearchTerm] = useState('');
+
+  // Define filter options
+  const TRIAL_TYPE_OPTIONS = [
+    { value: "all", label: "All Trials" },
+    { value: "jury", label: "Jury Trial" },
+    { value: "bench", label: "Bench Trial" },
+    { value: "none", label: "No Trial" }
+  ];
+
+  const SENTENCE_DISPLAY_OPTIONS = [
+    { value: "frequency", label: "Frequency" },
+    { value: "severity", label: "Severity" }
+  ];
+   
+  const PARTY_OPTIONS = [
+    { value: "all", label: "All Parties" },
+    { value: "prosecution", label: "Prosecution" },
+    { value: "defense", label: "Defense" }
+  ];
   
   const searchParams = useSearchParams();
 
@@ -72,9 +94,10 @@ const ResultsPage = () => {
         const courtId = searchParams.get('courtId') || '0';
         const judgeId = searchParams.get('judgeId') || '0';
         const chargeId = searchParams.get('chargeId') || '0';
+        setFinalParams({ courtId: +courtId, judgeId: +judgeId, chargeId: +chargeId });
         
         // Build the API URL with query parameters for the relevant specification
-        const apiUrl = `/api/relevant_specification?courtId=${courtId}&judgeId=${judgeId}&chargeId=${chargeId}`;
+        const apiUrl = `/api/specification?courtId=${courtId}&judgeId=${judgeId}&chargeId=${chargeId}`;
         
         // Fetch the relevant specification data
         const filteredResponse = await fetch(apiUrl);
@@ -86,13 +109,9 @@ const ResultsPage = () => {
         
         const filteredApiData = await filteredResponse.json();
         
-        // Extract the parameters that were actually used
-        const usedParams = filteredApiData.usedParams || { courtId: 0, judgeId: 0, chargeId: 0 };
-        setFinalParams(usedParams);
-        
         // Build the API URL for average data (only filtered by chargeId if it was used)
         const averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=${
-          usedParams.chargeId !== 0 ? usedParams.chargeId : '0'
+          chargeId
         }`;
         
         // Fetch the average data
@@ -106,7 +125,6 @@ const ResultsPage = () => {
 
         console.log('Filtered API response:', filteredApiData);
         console.log('Average API response:', averageApiData);
-        console.log('Used parameters:', usedParams);
         
         // Transform both API responses
         const transformedData = transformApiResponseToSearchResultData(filteredApiData);
@@ -129,6 +147,19 @@ const ResultsPage = () => {
     fetchData();
   }, [searchParams]); // Dependency on searchParams ensures it runs when URL params change
 
+  // Handler functions for accordion toggling
+  const handleCourtAccordionChange = (event: React.SyntheticEvent, isExpanded: boolean) => {
+    setCourtAccordionExpanded(isExpanded);
+  };
+
+  const handleJudgeAccordionChange = (event: React.SyntheticEvent, isExpanded: boolean) => {
+    setJudgeAccordionExpanded(isExpanded);
+  };
+
+  const handleChargeAccordionChange = (event: React.SyntheticEvent, isExpanded: boolean) => {
+    setChargeAccordionExpanded(isExpanded);
+  };
+
   const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
     setActiveTab(newValue);
   };
@@ -149,20 +180,33 @@ const ResultsPage = () => {
   const handleMotionsViewModeChange = (newMode: ViewMode) => {
     setMotionsViewMode(newMode);
   };
-  
-  // Add handlers for category toggles
-  const handleDispositionsCategoriesChange = (enabled: boolean) => {
-    setDispositionsCategoriesEnabled(enabled);
+
+  // Handler functions for search inputs
+  const handleCourtSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setCourtSearchTerm(event.target.value);
+  };
+
+  const handleJudgeSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setJudgeSearchTerm(event.target.value);
+  };
+
+  const handleChargeSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setChargeSearchTerm(event.target.value);
   };
   
-  const handleMotionsPartiesChange = (enabled: boolean) => {
-    setMotionsPartiesEnabled(enabled);
+  // Update the handlers for the filter changes
+  const handleDispositionsTrialTypeChange = (value: string) => {
+    setDispositionsTrialType(value);
+  };
+
+  const handleSentenceDisplayModeChange = (value: string) => {
+    setSentenceDisplayMode(value);
   };
   
-  const handleMotionsTypesChange = (enabled: boolean) => {
-    setMotionsTypesEnabled(enabled);
+  const handleMotionsPartyTypeChange = (value: string) => {
+    setMotionsPartyType(value);
   };
-  
+
   // Helper function to get the appropriate data based on view mode
   const getDataForViewMode = (
     tabName: 'dispositions' | 'sentences' | 'bail' | 'motions',
@@ -201,8 +245,32 @@ const ResultsPage = () => {
     }
   };
 
+  // Add this state variable with the other state declarations
+  const [chargeName, setChargeName] = useState<string>('');
+
+  // Add this effect to fetch the charge name when the page loads
+  useEffect(() => {
+    const fetchChargeName = async () => {
+      // Only fetch if we have a non-zero chargeId
+      const chargeId = searchParams.get('chargeId') || '0';
+      if (chargeId === '0') return;
+      
+      try {
+        const response = await fetch(`/api/charge?chargeId=${chargeId}`);
+        if (!response.ok) throw new Error('Failed to fetch charge');
+        
+        const data = await response.json();
+        setChargeName(data.name);
+      } catch (error) {
+        console.error('Error fetching charge name:', error);
+      }
+    };
+    
+    fetchChargeName();
+  }, [searchParams]);
+
   return (
-    <div className="results-container">
+    <div className="results-page-container">
       {loading ? (
         <Box className="loading-container">
           <CircularProgress sx={{ color: 'var(--accent-main)' }} />
@@ -212,145 +280,262 @@ const ResultsPage = () => {
           <Typography color="error">{error}</Typography>
         </Box>
       ) : (
-        <Box className="tab-container">
-          <TabContext value={activeTab}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs
-                value={activeTab}
-                onChange={handleTabChange}
-                variant="scrollable"
-                scrollButtons="auto"
-                className="results-tabs"
+        <div className="results-container">
+          {/* Court Accordion */}
+          <Box className="filter-container">
+            <Typography variant="h5" className="filter-title">
+              Filters
+            </Typography>
+            
+            {/* Court Accordion */}
+            <Accordion 
+              expanded={courtAccordionExpanded}
+              onChange={handleCourtAccordionChange}
+              className="filter-accordion"
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                aria-controls="court-filter-content"
+                id="court-filter-header"
               >
-                <Tab 
-                  label="Dispositions" 
-                  value="dispositions" 
-                  className="results-tab"
+                <Typography className="filter-summary-title">Court</Typography>
+                {finalParams?.courtId !== 0 && finalParams?.courtId && (
+                  <Typography className="filter-summary-value">
+                    {getCourtName(finalParams.courtId)}
+                  </Typography>
+                )}
+              </AccordionSummary>
+              <AccordionDetails>
+                <TextField
+                  variant="outlined"
+                  size="small"
+                  placeholder="Search courts..."
+                  value={courtSearchTerm}
+                  onChange={handleCourtSearchChange}
+                  fullWidth
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                  className="filter-search-input"
                 />
-                <Tab 
-                  label="Sentences" 
-                  value="sentences"
-                  className="results-tab"
+                {/* Content will be added in future steps */}
+              </AccordionDetails>
+            </Accordion>
+            
+            {/* Judge Accordion */}
+            <Accordion 
+              expanded={judgeAccordionExpanded}
+              onChange={handleJudgeAccordionChange}
+              className="filter-accordion"
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                aria-controls="judge-filter-content"
+                id="judge-filter-header"
+              >
+                <Typography className="filter-summary-title">Judge</Typography>
+                {finalParams?.judgeId !== 0 && finalParams?.judgeId && (
+                  <Typography className="filter-summary-value">
+                    {getJudgeName(finalParams.judgeId)}
+                  </Typography>
+                )}
+              </AccordionSummary>
+              <AccordionDetails>
+                <TextField
+                  variant="outlined"
+                  size="small"
+                  placeholder="Search judges..."
+                  value={judgeSearchTerm}
+                  onChange={handleJudgeSearchChange}
+                  fullWidth
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                  className="filter-search-input"
                 />
-                {/*<Tab 
-                  label="Bail Decisions" 
-                  value="bail"
-                  className="results-tab"
-                />*/}
-                <Tab 
-                  label="Motions" 
-                  value="motions"
-                  className="results-tab"
+                {/* Content will be added in future steps */}
+              </AccordionDetails>
+            </Accordion>
+            
+            {/* Charge Accordion */}
+            <Accordion 
+              expanded={chargeAccordionExpanded}
+              onChange={handleChargeAccordionChange}
+              className="filter-accordion"
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                aria-controls="charge-filter-content"
+                id="charge-filter-header"
+              >
+                <Typography className="filter-summary-title">Charge</Typography>
+                {finalParams?.chargeId !== 0 && finalParams?.chargeId && (
+                  <Typography className="filter-summary-value">
+                    {chargeName || `Charge #${finalParams.chargeId}`}
+                  </Typography>
+                )}
+              </AccordionSummary>
+              <AccordionDetails>
+                <TextField
+                  variant="outlined"
+                  size="small"
+                  placeholder="Search charges..."
+                  value={chargeSearchTerm}
+                  onChange={handleChargeSearchChange}
+                  fullWidth
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                  className="filter-search-input"
                 />
-              </Tabs>
-            </Box>
-            
-            <TabPanel value="dispositions" className="results-tab-panel">
-              {data && (
-                <Paper className="graph-card" elevation={2}>
-                  <div className="interaction-section">
-                    <ViewModeToggle
-                      viewMode={dispositionsViewMode}
-                      onChange={handleDispositionsViewModeChange}
-                    />
-                    <CategoryToggle
-                      enabled={dispositionsCategoriesEnabled}
-                      onChange={handleDispositionsCategoriesChange}
-                      label="Categories"
-                    />
-                  </div>
-                  <div className="graph-section">
-                    <DispositionsTab 
-                      data={getDataForViewMode('dispositions', dispositionsViewMode)} 
-                      viewMode={dispositionsViewMode}
-                      categoriesEnabled={dispositionsCategoriesEnabled}
-                    />
-                  </div>
-                </Paper>
-              )}
-            </TabPanel>
-            
-            <TabPanel value="sentences" className="results-tab-panel">
-              {data && (
-                <Paper className="graph-card" elevation={2}>
-                  <div className="interaction-section">
-                    <ViewModeToggle
-                      viewMode={sentencesViewMode}
-                      onChange={handleSentencesViewModeChange}
-                    />
-                  </div>
-                  <div className="graph-section">
-                    <SentencesTab 
-                      data={getDataForViewMode('sentences', sentencesViewMode)}
-                      viewMode={sentencesViewMode}
-                    />
-                  </div>
-                </Paper>
-              )}
-            </TabPanel>
-            
-            <TabPanel value="bail" className="results-tab-panel">
-              {data && (
-                <Paper className="graph-card" elevation={2}>
-                  <div className="interaction-section">
-                    <ViewModeToggle
-                      viewMode={bailViewMode}
-                      onChange={handleBailViewModeChange}
-                    />
-                  </div>
-                  <div className="graph-section">
-                    <BailTab 
-                      data={getDataForViewMode('bail', bailViewMode)}
-                      viewMode={bailViewMode}
-                    />
-                  </div>
-                </Paper>
-              )}
-            </TabPanel>
-            
-            <TabPanel value="motions" className="results-tab-panel">
-              {data && (
-                <Paper className="graph-card" elevation={2}>
-                  <div className="interaction-section">
-                    <ViewModeToggle
-                      viewMode={motionsViewMode}
-                      onChange={handleMotionsViewModeChange}
-                    />
-                    <CategoryToggle
-                      enabled={motionsPartiesEnabled}
-                      onChange={handleMotionsPartiesChange}
-                      label="Parties"
-                    />
-                    <CategoryToggle
-                      enabled={motionsTypesEnabled}
-                      onChange={handleMotionsTypesChange}
-                      label="Types"
-                    />
-                  </div>
-                  <div className="graph-section">
-                    <MotionsTab 
-                      data={getDataForViewMode('motions', motionsViewMode)}
-                      viewMode={motionsViewMode}
-                      partiesEnabled={motionsPartiesEnabled}
-                      typesEnabled={motionsTypesEnabled}
-                    />
-                  </div>
-                </Paper>
-              )}
-            </TabPanel>
-          </TabContext>
-            {finalParams && (
-              <Box className="params-info" sx={{ mb: 2, px: 2 }}>
-                <Typography variant="body2" color="textSecondary">
-                  Showing data based on: 
-                  {finalParams.judgeId !== 0 && ` Judge ID ${finalParams.judgeId}`}
-                  {finalParams.courtId !== 0 && ` Court ID ${finalParams.courtId}`}
-                  {finalParams.chargeId !== 0 && ` Charge ID ${finalParams.chargeId}`}
-                  {finalParams.judgeId === 0 && finalParams.courtId === 0 && finalParams.chargeId === 0 && ' All cases'}
-                </Typography>
+                {/* Content will be added in future steps */}
+              </AccordionDetails>
+            </Accordion>
+          </Box>
+          <Box className="tab-container">
+            <TabContext value={activeTab}>
+              <Box className="results-tabs-container">
+                <Tabs
+                  value={activeTab}
+                  onChange={handleTabChange}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  className="results-tabs"
+                >
+                  <Tab 
+                    label="Dispositions" 
+                    value="dispositions" 
+                    className="results-tab"
+                  />
+                  <Tab 
+                    label="Sentences" 
+                    value="sentences"
+                    className="results-tab"
+                  />
+                  {/*<Tab 
+                    label="Bail Decisions" 
+                    value="bail"
+                    className="results-tab"
+                  />*/}
+                  <Tab 
+                    label="Motions" 
+                    value="motions"
+                    className="results-tab"
+                  />
+                </Tabs>
               </Box>
-            )}
-        </Box>
+              
+              <TabPanel value="dispositions" className="results-tab-panel">
+                {data && (
+                  <Paper className="graph-card" elevation={2}>
+                    <div className="interaction-section">
+                      <ViewModeToggle
+                        viewMode={dispositionsViewMode}
+                        onChange={handleDispositionsViewModeChange}
+                      />
+                      <CategoryFilter
+                        value={dispositionsTrialType}
+                        onChange={handleDispositionsTrialTypeChange}
+                        label="Trial Type"
+                        options={TRIAL_TYPE_OPTIONS}
+                      />
+                    </div>
+                    <div className="graph-section">
+                      <DispositionsTab 
+                        data={getDataForViewMode('dispositions', dispositionsViewMode)} 
+                        viewMode={dispositionsViewMode}
+                        trialTypeFilter={dispositionsTrialType}
+                      />
+                    </div>
+                  </Paper>
+                )}
+              </TabPanel>
+              
+              <TabPanel value="sentences" className="results-tab-panel">
+                {data && (
+                  <Paper className="graph-card" elevation={2}>
+                    <div className="interaction-section">
+                      <ViewModeToggle 
+                        viewMode={sentencesViewMode} 
+                        onChange={handleSentencesViewModeChange} 
+                      />
+                      <CategoryFilter
+                        value={sentenceDisplayMode}
+                        onChange={handleSentenceDisplayModeChange}
+                        label="Display"
+                        options={SENTENCE_DISPLAY_OPTIONS}
+                      />
+                    </div>
+                    <div className="graph-section">
+                      <SentencesTab 
+                        data={getDataForViewMode('sentences', sentencesViewMode)} 
+                        viewMode={sentencesViewMode}
+                        displayMode={sentenceDisplayMode}
+                      />
+                    </div>
+                  </Paper>
+                )}
+              </TabPanel>
+              
+              <TabPanel value="bail" className="results-tab-panel">
+                {data && (
+                  <Paper className="graph-card" elevation={2}>
+                    <div className="interaction-section">
+                      <ViewModeToggle
+                        viewMode={bailViewMode}
+                        onChange={handleBailViewModeChange}
+                      />
+                    </div>
+                    <div className="graph-section">
+                      <BailTab 
+                        data={getDataForViewMode('bail', bailViewMode)}
+                        viewMode={bailViewMode}
+                      />
+                    </div>
+                  </Paper>
+                )}
+              </TabPanel>
+              
+              <TabPanel value="motions" className="results-tab-panel">
+                {data && (
+                  <Paper className="graph-card" elevation={2}>
+                    <div className="interaction-section">
+                      <ViewModeToggle
+                        viewMode={motionsViewMode}
+                        onChange={handleMotionsViewModeChange}
+                      />
+                      <CategoryFilter
+                        value={motionsPartyType}
+                        onChange={handleMotionsPartyTypeChange}
+                        label="Party"
+                        options={PARTY_OPTIONS}
+                      />
+                    </div>
+                    <div className="graph-section">
+                      <MotionsTab 
+                        data={getDataForViewMode('motions', motionsViewMode)}
+                        viewMode={motionsViewMode}
+                        partyFilter={motionsPartyType}
+                      />
+                    </div>
+                  </Paper>
+                )}
+              </TabPanel>
+            </TabContext>
+          </Box>
+        </div>
       )}
     </div>
   );

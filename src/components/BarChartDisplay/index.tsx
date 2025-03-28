@@ -58,7 +58,7 @@ const createComparativeFormatter = () => {
     const percent = Math.abs((actualValue - 1) * 100).toFixed(0);
     const direction = actualValue >= 1 ? 'above' : 'below';
 
-    if (Math.abs(actualValue - 1) < 0.05) {
+    if (Math.abs(actualValue - 1) < 0.01) {
       return 'Average';
     }
     return `${percent}% ${direction} average`;
@@ -134,9 +134,14 @@ const BarChartDisplay = ({
   let xAxis;
   if (viewMode === 'comparative') {
     const allValues = safeDatasets.flatMap((ds) => ds.data);
-    const compMin = Math.min(...allValues);
-    const compMax = Math.max(...allValues);
-
+    
+    // Find the maximum magnitude (absolute value) from all data points
+    const maxMagnitude = Math.max(...allValues.map(value => Math.abs(value)));
+    
+    // Add a 10% buffer to ensure data points aren't too close to the edges
+    const buffer = maxMagnitude * 0.1;
+    const symmetricalLimit = maxMagnitude + buffer;
+    
     xAxis = [
       {
         scaleType: 'linear' as const,
@@ -145,8 +150,9 @@ const BarChartDisplay = ({
           fontSize: 14,
           fontWeight: 600,
         },
-        min: Math.min(0, compMin),
-        max: Math.max(0, compMax),
+        // Set symmetrical domain around zero
+        min: -symmetricalLimit,
+        max: symmetricalLimit,
       },
     ];
   } else {

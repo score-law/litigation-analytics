@@ -6,25 +6,102 @@
  * graph sections, and interactive controls.
  */
 
+/* 
+ * Results Page Styles
+ *
+ * This file contains styles for the litigation analytics results page.
+ * It defines the layout and appearance of the tabbed interface, content cards,
+ * graph sections, and interactive controls.
+ */
+
 /* Main container - full width and height */
-.results-container {
-  display: flex;
-  flex-direction: column;
+.results-page-container {
   width: 100%;
   min-height: calc(100vh - 90px);
   background: var(--background-light);
   padding: 0;
+
+  .results-container{
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+
+    .filter-container{
+      width: 20%;
+      border-right: 2px solid rgba(0, 0, 0, 0.05);
+      padding: var(--spacing-md);
+      
+      .filter-title {
+        width: 100%;
+        text-align: left;
+        margin-top: var(--spacing-md);
+        font-weight: 600;
+      }
+      
+      .filter-accordion {
+        margin-bottom: var(--spacing-sm);
+        box-shadow: none;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+        background-color: transparent;
+        transition: all 0.3s ease;
+        
+        &:before {
+          display: none;
+        }
+        
+        .MuiAccordionSummary-root {
+          min-height: 48px;
+          padding: var(--spacing-sm) 0;
+          
+          &.Mui-expanded {
+            min-height: 48px;
+          }
+          
+          .MuiAccordionSummary-content {
+            margin: 0;
+            flex-direction: column;
+            align-items: flex-start;
+            
+            .filter-summary-title {
+              font-weight: 500;
+            }
+            
+            .filter-summary-value {
+              font-size: 0.875rem;
+              color: var(--text-secondary);
+            }
+          }
+        }
+        
+        .MuiAccordionDetails-root {
+          padding: var(--spacing-sm) 0 var(--spacing-md);
+        }
+      }
+    }
+  
+    .tab-container {
+      width: 80%;
+      background: var(--background-light);
+    }
+  }
 }
 
-/* Tab container with light background */
-.tab-container {
-  width: 100%;
-  background: var(--background-light);
-  border-bottom: 1px solid var(--border-light);
+.results-tabs-container{
+  width: 90%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  .specification-title-text {
+    flex: 1;
+    font-size: 1.5rem;
+  }
 }
 
 /* Enhanced tab styling */
 .results-tabs {
+  padding: 2vh 0;
   .MuiTabs-indicator {
     background-color: var(--accent-main);
     height: 3px;
@@ -45,16 +122,14 @@
 }
 
 .results-tab-panel {
-  padding: var(--spacing-md) var(--spacing-sm);
+  padding: 0 !important;
   background-color: var(--background-light);
 }
 
 /* Content Card - refined styling for better focus */
 .graph-card {
-  width: 85%;
+  width: 90%;
   margin: 0 auto;
-  margin-top: var(--spacing-md);
-  margin-bottom: var(--spacing-md);
   background: var(--background-card);
   border-radius: 5px;
   box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;

@@ -18,6 +18,7 @@
  * - usedParams: Information about which parameters were used in the final selection
  */
 
+//! Deprecated: This API route is no longer used in the application. (for now...)
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/db/connection';
 import { ApiMotionData, SpecificationData } from '@/types';
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     // Query to find the most specific specification with at least MIN_TOTAL_CASES
     const specificationQuery = `
       SELECT * FROM specification 
-      WHERE (
+      WHERE trial_category = 'any' AND (
         (judge_id = ? AND charge_id = ? AND court_id = 0 AND total_cases >= ${MIN_TOTAL_CASES} AND ? > 0 AND ? > 0) OR
         (court_id = ? AND charge_id = ? AND judge_id = 0 AND total_cases >= ${MIN_TOTAL_CASES} AND ? > 0 AND ? > 0) OR
         (charge_id = ? AND court_id = 0 AND judge_id = 0 AND total_cases >= ${MIN_TOTAL_CASES} AND ? > 0) OR
@@ -86,8 +87,6 @@ export async function GET(request: NextRequest) {
     ];
   
     const specificationData = await query<SpecificationData[]>(specificationQuery, specParams);
-
-    console.log('Found specification data:', specificationData);
   
     if (!specificationData || specificationData.length === 0) {
       return NextResponse.json({ 
@@ -105,8 +104,6 @@ export async function GET(request: NextRequest) {
       judgeId: selectedSpec.judge_id,
       chargeId: selectedSpec.charge_id
     };
-    
-    console.log('Used parameters:', usedParams);
     
     // Get motion data for the selected specification
     const specIds = [selectedSpec.specification_id];

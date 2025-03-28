@@ -13,45 +13,75 @@ import BarChartDisplay from '@/components/BarChartDisplay';
 interface SentencesTabProps {
   data: SentenceData[];
   viewMode: ViewMode;
+  displayMode: string; // Added displayMode prop
 }
 
-const SentencesTab = ({ data, viewMode }: SentencesTabProps) => {
-  // Process data for the percentage chart
-  const percentageChartData = useMemo(() => {
+const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
+  // Process data for the chart
+  const chartData = useMemo(() => {
     if (!data || data.length === 0) {
       return { labels: [], datasets: [] };
     }
     
-    // Sort data by percentage in descending order
-    const sortedData = [...data].sort((a, b) => b.percentage - a.percentage);
+    let chartValues;
+    let chartLabel;
     
-    // Create value formatter based on view mode
-    const valueFormatter = (value: number | null) => {
-      if (value === null) return '';
-      
-      if (viewMode === 'comparative') {
-        if (Math.abs(value - 1) < 0.05) return 'Average';
-        const percent = Math.abs((value - 1) * 100).toFixed(0);
-        return value > 1 
-          ? `${percent}% above average` 
-          : `${percent}% below average`;
-      } else {
-        return `${value.toFixed(0)}%`;
-      }
-    };
+    if (displayMode === 'frequency') {
+      chartValues = data.map(item => item.percentage);
+      chartLabel = 'Sentence Frequency';
+    } else { // severity mode
+      chartValues = data.map(item => {
+        // Use the appropriate severity value based on sentence type
+        const isMonetary = item.type.toLowerCase().includes('fine');
+        return isMonetary ? item.averageCost : item.averageDays;
+      });
+      chartLabel = 'Sentence Severity';
+    }
+
+    // Create map of sentence types for lookup in valueFormatter
+    const sentenceTypeMap: Record<number, string> = {};
+    data.forEach((item, index) => {
+      sentenceTypeMap[index] = item.type;
+    });
     
     return {
-      labels: sortedData.map(item => item.type),
+      labels: data.map(item => item.type),
       datasets: [
         {
-          data: sortedData.map(item => item.percentage),
-          label: 'Sentence Frequency',
+          data: chartValues,
+          label: chartLabel,
           color: 'var(--accent-main)',
-          valueFormatter
+          valueFormatter: (value: number | null) => {
+            if (value === null) return '';
+            
+            // Look up the sentence type based on the current data point
+            const currentIndex = chartValues.indexOf(value);
+            const sentenceType = sentenceTypeMap[currentIndex];
+            const isMonetary = sentenceType?.toLowerCase().includes('fine');
+            
+            if (viewMode === 'comparative') {
+              if (Math.abs(value - 1) < 0.05) return 'Average';
+              const percent = Math.abs((value - 1) * 100).toFixed(0);
+              return value > 1 
+                ? `${percent}% above average` 
+                : `${percent}% below average`;
+            } else {
+              // Format based on display mode and sentence type
+              if (displayMode === 'frequency') {
+                return `${value.toFixed(1)}%`;
+              } else { // severity mode
+                if (isMonetary) {
+                  return `$${value.toFixed(0)}`;
+                } else {
+                  return `${value.toFixed(0)} days`;
+                }
+              }
+            }
+          }
         }
       ]
     };
-  }, [data, viewMode]);
+  }, [data, viewMode, displayMode]);
 
   // If no data, display a message
   if (!data || data.length === 0) {
@@ -62,12 +92,20 @@ const SentencesTab = ({ data, viewMode }: SentencesTabProps) => {
     );
   }
 
+  const xAxisLabel = useMemo(() => {
+    if (viewMode === 'comparative') {
+      return 'Relative to Average';
+    } else {
+      return displayMode === 'frequency' ? 'Percentage' : 'Average Duration/Cost';
+    }
+  }, [viewMode, displayMode]);
+
   return (
     <div className="sentences-container">
       <div className="chart-section">
         <BarChartDisplay 
-          chartData={percentageChartData} 
-          xAxisLabel={viewMode === 'comparative' ? 'Relative to Average' : 'Percentage'}
+          chartData={chartData} 
+          xAxisLabel={xAxisLabel}
           viewMode={viewMode}
         />
       </div>
