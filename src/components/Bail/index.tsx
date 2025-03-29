@@ -27,7 +27,6 @@ const BailTab = ({ data, viewMode }: BailTabProps) => {
       if (value === null) return '';
       
       if (viewMode === 'comparative') {
-        if (Math.abs(value - 1) < 0.05) return 'Average';
         const percent = Math.abs((value - 1) * 100).toFixed(0);
         return value > 1 
           ? `${percent}% above average` 

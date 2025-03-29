@@ -1,16 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { query } from '@/db/connection';
+import { comparePassword, generateToken } from '@/utils/auth';
+import { RowDataPacket } from 'mysql2';
+
+interface UserRow extends RowDataPacket {
+  id: number;
+  email: string;
+  password: string;
+}
 
 export async function POST(req: NextRequest) {
-  const { password } = await req.json();
-  console.log(password);
+  try {
+    const { email, password } = await req.json();
 
-  if (password === process.env.NEXT_PUBLIC_PASSWORD) {
-    return NextResponse.json({ message: 'Authenticated' });;
-  } else {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    // Validate inputs
+    if (!email || !password) {
+      return NextResponse.json(
+        { message: 'Email and password are required' },
+        { status: 400 }
+      );
+    }
+
+    // Query for user with the provided email
+    const users = await query<UserRow[]>(
+      'SELECT id, email, password FROM users WHERE email = ?',
+      [email]
+    );
+
+    // Check if user exists
+    if (users.length === 0) {
+      return NextResponse.json(
+        { message: 'Invalid email or password' },
+        { status: 401 }
+      );
+    }
+
+    const user = users[0];
+
+    // Verify password
+    const isPasswordValid = await comparePassword(password, user.password);
+    
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        { message: 'Invalid email or password' },
+        { status: 401 }
+      );
+    }
+
+    // Generate JWT token
+    const token = generateToken(user.id, user.email);
+
+    // Return success with token
+    return NextResponse.json({ 
+      message: 'Authentication successful',
+      token
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return NextResponse.json(
+      { message: 'An error occurred during login' },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET(req: NextRequest) {
-  return NextResponse.json({ message: `Method ${req.method} Not Allowed` }, { status: 405 });
+  return NextResponse.json(
+    { message: `Method ${req.method} Not Allowed` },
+    { status: 405 }
+  );
 }

@@ -58,7 +58,7 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
         datasets: [
           {
             label: 'Granted Ratio',
-            data: data.map(item => item.status.granted),
+            data: data.map(item => item.status.granted === 0 ? null : item.status.granted),
             backgroundColor: OUTCOME_COLORS.GRANTED,
           }
         ]

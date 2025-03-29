@@ -8,24 +8,24 @@
  * horizontal bar graphs. Each tab provides interactive visualizations tailored 
  * to different aspects of court case data.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Box, Tab, Tabs, Typography, Paper, CircularProgress, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
-import { TextField, InputAdornment } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
+import { Box, Tab, Tabs, Typography, Paper, CircularProgress, Accordion, AccordionSummary, AccordionDetails, TextField, Chip, IconButton } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { TabContext, TabPanel } from '@mui/lab';
 import { calculateComparativeDispositionsData, calculateComparativeSentencesData, 
 calculateComparativeBailData, calculateComparativeMotionsData } from '@/utils/dataComparators';
+import { courts, judges } from '@/data';
 import { transformApiResponseToSearchResultData } from '@/utils/dataTransformers';
-import { getCourtName, getJudgeName, getChargeName } from '@/utils/nameUtils';
-import { SearchResultData, ViewMode, Charge } from '@/types';
+import CloseIcon from '@mui/icons-material/Close';
+import { SearchResultData, ViewMode } from '@/types';
 import DispositionsTab from '@/components/Dispositions';
 import SentencesTab from '@/components/Sentences';
 import BailTab from '@/components/Bail';
 import MotionsTab from '@/components/Motions';
 import ViewModeToggle from '@/components/ViewModeToggle';
 import CategoryFilter from '@/components/CategoryFilter';
+import SelectionList from '@/components/SelectionList';
 import './styles.scss';
 
 const ResultsPage = () => {
@@ -34,6 +34,24 @@ const ResultsPage = () => {
   const [averageData, setAverageData] = useState<SearchResultData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalCases, setTotalCases] = useState<number>(0);
+  
+  const searchParams = useSearchParams();
+  
+  // State variables for filters (primary source of truth)
+  const [selectedCourtId, setSelectedCourtId] = useState<number>(
+    parseInt(searchParams.get('courtId') || '0')
+  );
+  const [selectedJudgeId, setSelectedJudgeId] = useState<number>(
+    parseInt(searchParams.get('judgeId') || '0')
+  );
+  const [selectedChargeId, setSelectedChargeId] = useState<number>(
+    parseInt(searchParams.get('chargeId') || '0')
+  );
+  
+  // tracking charge name
+  const [chargeName, setChargeName] = useState<string>('');
+  
   // State to track the parameters used in the final query
   const [finalParams, setFinalParams] = useState<{
     courtId: number;
@@ -61,7 +79,220 @@ const ResultsPage = () => {
   const [courtSearchTerm, setCourtSearchTerm] = useState('');
   const [judgeSearchTerm, setJudgeSearchTerm] = useState('');
   const [chargeSearchTerm, setChargeSearchTerm] = useState('');
+  // Added debounced charge search term state
+  const [debouncedChargeSearchTerm, setDebouncedChargeSearchTerm] = useState('');
+  // Added typing state for loading indicator
+  const [isTypingCharge, setIsTypingCharge] = useState(false);
 
+  // New state for selection lists
+  const [visibleCourts, setVisibleCourts] = useState<Array<{ id: number; name: string }>>([]);
+  const [visibleJudges, setVisibleJudges] = useState<Array<{ id: number; name: string }>>([]);
+  const [visibleCharges, setVisibleCharges] = useState<Array<{ id: number; name: string }>>([]);
+  
+  const [loadingCourts, setLoadingCourts] = useState<boolean>(false);
+  const [loadingJudges, setLoadingJudges] = useState<boolean>(false);
+  const [loadingCharges, setLoadingCharges] = useState<boolean>(false);
+  
+  const [hasMoreCourts, setHasMoreCourts] = useState<boolean>(true);
+  const [hasMoreJudges, setHasMoreJudges] = useState<boolean>(true);
+  const [hasMoreCharges, setHasMoreCharges] = useState<boolean>(true);
+  
+  // Targeted data fetching function with minimal state updates
+  const fetchFilteredData = useCallback(async (court: number, judge: number, charge: number) => {
+    try {
+      const params = new URLSearchParams();
+      params.set('courtId', court.toString());
+      params.set('judgeId', judge.toString());
+      params.set('chargeId', charge.toString());
+      
+      const response = await fetch(`/api/specification?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch data');
+      }
+      
+      const responseData = await response.json();
+
+      // Extract total cases from the first specification record or set to 0 if none
+      if (responseData.specification && responseData.specification.length > 0) {
+        for (const spec of responseData.specification) {
+          if (spec.trial_category == 'any') {
+            setTotalCases(spec.total_cases);
+            break;
+          }
+        }
+      } else {
+        setTotalCases(0);
+      }
+      
+      // Transform both API responses
+      const transformedData = transformApiResponseToSearchResultData(responseData);
+
+      setData(transformedData);
+
+      if (charge != finalParams?.chargeId) {
+        let averageApiUrl;
+        if (charge == 0 || charge != 0 && judge != 0 && court != 0) {
+          averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=0`;
+        }
+        else {
+          averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=${
+            charge.toString()
+          }`;
+        }
+        
+        // Fetch the average data
+        const averageResponse = await fetch(averageApiUrl);
+        
+        if (!averageResponse.ok) {
+          throw new Error(`API error: ${averageResponse.status}`);
+        }
+        
+        const averageApiData = await averageResponse.json();
+
+        console.log('Average API response:', averageApiData);
+        
+        // Transform both API responses
+        const transformedAverageData = transformApiResponseToSearchResultData(averageApiData);
+        
+        setAverageData(transformedAverageData);
+      }
+
+      // Update finalParams for reference
+      setFinalParams({
+        courtId: court,
+        judgeId: judge,
+        chargeId: charge,
+      });
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError('Failed to fetch data. Please try again.');
+    }
+  }, []);
+
+  // Function to update URL without triggering re-fetches
+  const syncUrlWithState = useCallback(() => {
+    const newParams = new URLSearchParams();
+    newParams.set('courtId', selectedCourtId.toString());
+    newParams.set('judgeId', selectedJudgeId.toString());
+    newParams.set('chargeId', selectedChargeId.toString());
+    
+    const newUrl = `${window.location.pathname}?${newParams.toString()}`;
+    window.history.replaceState({}, '', newUrl);
+  }, [selectedCourtId, selectedJudgeId, selectedChargeId]);
+
+  // Sync URL with state whenever selection changes
+  useEffect(() => {
+    fetchFilteredData(selectedCourtId, selectedJudgeId, selectedChargeId);
+    syncUrlWithState();
+  }, [selectedCourtId, selectedJudgeId, selectedChargeId, syncUrlWithState]);
+  
+  // Debounce effect for charge search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedChargeSearchTerm(chargeSearchTerm);
+      setIsTypingCharge(false);
+    }, 500); // 500ms debounce delay
+    
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [chargeSearchTerm]);
+  
+  // Initialize court options with real data
+  useEffect(() => {
+    // Load first 20 courts
+    setVisibleCourts(courts.slice(0, 20));
+    setHasMoreCourts(courts.length > 20);
+  }, []);
+
+  // Initialize judges options with real data
+  useEffect(() => {
+    // Load first 20 judges
+    setVisibleJudges(judges.slice(0, 20));
+    setHasMoreJudges(judges.length > 20);
+  }, []);
+
+  // Updated to use debouncedChargeSearchTerm instead of chargeSearchTerm
+  useEffect(() => {
+    const fetchInitialCharges = async () => {
+      setLoadingCharges(true);
+      try {
+        // API call to get first 20 charges
+        const response = await fetch(
+          `/api/charges?limit=20&offset=0${debouncedChargeSearchTerm ? `&search=${encodeURIComponent(debouncedChargeSearchTerm)}` : ''}`
+        );
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch charges: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setVisibleCharges(data.charges);
+        setHasMoreCharges(data.total > data.charges.length);
+      } catch (error) {
+        console.error("Failed to fetch charges:", error);
+      } finally {
+        setLoadingCharges(false);
+      }
+    };
+    
+    fetchInitialCharges();
+  }, [debouncedChargeSearchTerm]); // Changed dependency from chargeSearchTerm to debouncedChargeSearchTerm
+
+  // Handler for loading more courts with real pagination
+  const loadMoreCourts = () => {
+    setLoadingCourts(true);
+    
+    // Short timeout to prevent UI freezing
+    setTimeout(() => {
+      const currentLength = visibleCourts.length;
+      const nextItems = courts.slice(currentLength, currentLength + 20);
+      
+      setVisibleCourts(prev => [...prev, ...nextItems]);
+      setHasMoreCourts(currentLength + nextItems.length < courts.length);
+      setLoadingCourts(false);
+    }, 100);
+  };
+
+  // Handler for loading more judges with real pagination
+  const loadMoreJudges = () => {
+    setLoadingJudges(true);
+    
+    // Short timeout to prevent UI freezing
+    setTimeout(() => {
+      const currentLength = visibleJudges.length;
+      const nextItems = judges.slice(currentLength, currentLength + 20);
+      
+      setVisibleJudges(prev => [...prev, ...nextItems]);
+      setHasMoreJudges(currentLength + nextItems.length < judges.length);
+      setLoadingJudges(false);
+    }, 100);
+  };
+
+  // Handler for loading more charges with API pagination
+  const loadMoreCharges = async () => {
+    setLoadingCharges(true);
+    
+    try {
+      const currentLength = visibleCharges.length;
+      const response = await fetch(
+        `/api/charges?limit=20&offset=${currentLength}${debouncedChargeSearchTerm ? `&search=${encodeURIComponent(debouncedChargeSearchTerm)}` : ''}`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch more charges: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setVisibleCharges(prev => [...prev, ...data.charges]);
+      setHasMoreCharges(currentLength + data.charges.length < data.total);
+    } catch (error) {
+      console.error("Failed to fetch more charges:", error);
+    } finally {
+      setLoadingCharges(false);
+    }
+  };
+    
   // Define filter options
   const TRIAL_TYPE_OPTIONS = [
     { value: "all", label: "All Trials" },
@@ -80,72 +311,12 @@ const ResultsPage = () => {
     { value: "prosecution", label: "Prosecution" },
     { value: "defense", label: "Defense" }
   ];
-  
-  const searchParams = useSearchParams();
 
-  // Fetch data from the API
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // Extract parameters from URL
-        const courtId = searchParams.get('courtId') || '0';
-        const judgeId = searchParams.get('judgeId') || '0';
-        const chargeId = searchParams.get('chargeId') || '0';
-        setFinalParams({ courtId: +courtId, judgeId: +judgeId, chargeId: +chargeId });
-        
-        // Build the API URL with query parameters for the relevant specification
-        const apiUrl = `/api/specification?courtId=${courtId}&judgeId=${judgeId}&chargeId=${chargeId}`;
-        
-        // Fetch the relevant specification data
-        const filteredResponse = await fetch(apiUrl);
-        
-        if (!filteredResponse.ok) {
-          const errorData = await filteredResponse.json();
-          throw new Error(errorData.error || `API error: ${filteredResponse.status}`);
-        }
-        
-        const filteredApiData = await filteredResponse.json();
-        
-        // Build the API URL for average data (only filtered by chargeId if it was used)
-        const averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=${
-          chargeId
-        }`;
-        
-        // Fetch the average data
-        const averageResponse = await fetch(averageApiUrl);
-        
-        if (!averageResponse.ok) {
-          throw new Error(`API error: ${averageResponse.status}`);
-        }
-        
-        const averageApiData = await averageResponse.json();
-
-        console.log('Filtered API response:', filteredApiData);
-        console.log('Average API response:', averageApiData);
-        
-        // Transform both API responses
-        const transformedData = transformApiResponseToSearchResultData(filteredApiData);
-        const transformedAverageData = transformApiResponseToSearchResultData(averageApiData);
-        
-        setData(transformedData);
-        setAverageData(transformedAverageData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        if (error instanceof Error) {
-          setError(`Failed to fetch data: ${error.message}`);
-        } else {
-          setError('Failed to fetch data. Please try again later.');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [searchParams]); // Dependency on searchParams ensures it runs when URL params change
+  // Handle charge search input change
+  const handleChargeSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setChargeSearchTerm(e.target.value);
+    setIsTypingCharge(true);
+  };
 
   // Handler functions for accordion toggling
   const handleCourtAccordionChange = (event: React.SyntheticEvent, isExpanded: boolean) => {
@@ -180,19 +351,6 @@ const ResultsPage = () => {
   const handleMotionsViewModeChange = (newMode: ViewMode) => {
     setMotionsViewMode(newMode);
   };
-
-  // Handler functions for search inputs
-  const handleCourtSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setCourtSearchTerm(event.target.value);
-  };
-
-  const handleJudgeSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setJudgeSearchTerm(event.target.value);
-  };
-
-  const handleChargeSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setChargeSearchTerm(event.target.value);
-  };
   
   // Update the handlers for the filter changes
   const handleDispositionsTrialTypeChange = (value: string) => {
@@ -206,7 +364,22 @@ const ResultsPage = () => {
   const handleMotionsPartyTypeChange = (value: string) => {
     setMotionsPartyType(value);
   };
+  
+  // Handler for court selection
+  const handleCourtSelect = (id: number) => {
+    setSelectedCourtId(id);
+  };
 
+  // Handler for judge selection
+  const handleJudgeSelect = (id: number) => {
+    setSelectedJudgeId(id);
+  };
+
+  // Handler for charge selection
+  const handleChargeSelect = (id: number) => {
+    setSelectedChargeId(id);
+  };
+  
   // Helper function to get the appropriate data based on view mode
   const getDataForViewMode = (
     tabName: 'dispositions' | 'sentences' | 'bail' | 'motions',
@@ -245,29 +418,33 @@ const ResultsPage = () => {
     }
   };
 
-  // Add this state variable with the other state declarations
-  const [chargeName, setChargeName] = useState<string>('');
-
-  // Add this effect to fetch the charge name when the page loads
+  // Track charge name when selectedChargeId changes
   useEffect(() => {
-    const fetchChargeName = async () => {
-      // Only fetch if we have a non-zero chargeId
-      const chargeId = searchParams.get('chargeId') || '0';
-      if (chargeId === '0') return;
-      
-      try {
-        const response = await fetch(`/api/charge?chargeId=${chargeId}`);
-        if (!response.ok) throw new Error('Failed to fetch charge');
-        
-        const data = await response.json();
-        setChargeName(data.name);
-      } catch (error) {
-        console.error('Error fetching charge name:', error);
-      }
-    };
+    if (selectedChargeId === 0) {
+      setChargeName('');
+      return;
+    }
     
-    fetchChargeName();
-  }, [searchParams]);
+    const selectedCharge = visibleCharges.find(charge => charge.id === selectedChargeId);
+    if (selectedCharge) {
+      setChargeName(selectedCharge.name);
+    } else {
+      // If not found in the visible charges, fetch it
+      const fetchChargeName = async () => {
+        try {
+          const response = await fetch(`/api/charges/${selectedChargeId}`);
+          if (response.ok) {
+            const data = await response.json();
+            setChargeName(data.name);
+          }
+        } catch (error) {
+          console.error("Error fetching charge name:", error);
+        }
+      };
+      
+      fetchChargeName();
+    }
+  }, [selectedChargeId, visibleCharges]);
 
   return (
     <div className="results-page-container">
@@ -284,7 +461,7 @@ const ResultsPage = () => {
           {/* Court Accordion */}
           <Box className="filter-container">
             <Typography variant="h5" className="filter-title">
-              Filters
+              Filter by Category
             </Typography>
             
             {/* Court Accordion */}
@@ -297,32 +474,93 @@ const ResultsPage = () => {
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="court-filter-content"
                 id="court-filter-header"
+                sx={{
+                  display: 'grid',
+                  gridTemplateAreas: `
+                    "title expandIcon"
+                    "selection selection"
+                  `,
+                  gridTemplateColumns: '1fr auto',
+                  alignItems: 'start',
+                  '& .MuiAccordionSummary-content': {
+                    display: 'contents', // This prevents flex layout from interfering
+                    margin: 0
+                  }
+                }}
               >
-                <Typography className="filter-summary-title">Court</Typography>
-                {finalParams?.courtId !== 0 && finalParams?.courtId && (
-                  <Typography className="filter-summary-value">
-                    {getCourtName(finalParams.courtId)}
-                  </Typography>
+                <Typography>
+                  Court
+                </Typography>
+                
+                {selectedCourtId !== 0 && (
+                  <Box 
+                    sx={{ 
+                      gridArea: 'selection',
+                      width: '100%',
+                      marginTop: 1,
+                      padding: '4px',
+                      paddingLeft: '8px',
+                      border: '1px solid rgba(0, 0, 0, 0.12)',
+                      backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                      transition: 'background-color 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                      },
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                    onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
+                  >
+                    <Typography variant="body2">
+                      {visibleCourts.find(c => c.id === selectedCourtId)?.name || 'Selected Court'}
+                    </Typography>
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCourtSelect(0);
+                      }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 )}
               </AccordionSummary>
               <AccordionDetails>
-                <TextField
-                  variant="outlined"
-                  size="small"
-                  placeholder="Search courts..."
-                  value={courtSearchTerm}
-                  onChange={handleCourtSearchChange}
-                  fullWidth
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                  className="filter-search-input"
-                />
-                {/* Content will be added in future steps */}
+                {courtAccordionExpanded && (
+                  <>
+                    <TextField 
+                      label="Search Courts"
+                      variant="outlined"
+                      fullWidth
+                      size="small"
+                      value={courtSearchTerm}
+                      onChange={(e) => setCourtSearchTerm(e.target.value)}
+                      sx={{
+                        mt: 0,
+                        mb: 0,
+                        '& .MuiOutlinedInput-root': {
+                          borderBottomLeftRadius: 0,
+                          borderBottomRightRadius: 0,
+                        }
+                      }}
+                    />
+                    <SelectionList
+                      items={visibleCourts.filter(court => 
+                        court.name.toLowerCase().includes(courtSearchTerm.toLowerCase()) && 
+                        court.id !== selectedCourtId
+                      )}
+                      selectedId={finalParams?.courtId || 0}
+                      onSelect={handleCourtSelect}
+                      searchTerm={courtSearchTerm}
+                      loading={loadingCourts}
+                      loadMore={loadMoreCourts}
+                      hasMore={hasMoreCourts}
+                      type="court"
+                    />
+                  </>
+                )}
               </AccordionDetails>
             </Accordion>
             
@@ -332,36 +570,97 @@ const ResultsPage = () => {
               onChange={handleJudgeAccordionChange}
               className="filter-accordion"
             >
-              <AccordionSummary
+              <AccordionSummary 
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="judge-filter-content"
                 id="judge-filter-header"
+                sx={{
+                  display: 'grid',
+                  gridTemplateAreas: `
+                    "title expandIcon"
+                    "selection selection"
+                  `,
+                  gridTemplateColumns: '1fr auto',
+                  alignItems: 'start',
+                  '& .MuiAccordionSummary-content': {
+                    display: 'contents', // This prevents flex layout from interfering
+                    margin: 0
+                  }
+                }}
               >
-                <Typography className="filter-summary-title">Judge</Typography>
-                {finalParams?.judgeId !== 0 && finalParams?.judgeId && (
-                  <Typography className="filter-summary-value">
-                    {getJudgeName(finalParams.judgeId)}
-                  </Typography>
+                <Typography>
+                  Judge
+                </Typography>
+                
+                {selectedJudgeId !== 0 && (
+                  <Box 
+                    sx={{ 
+                      gridArea: 'selection',
+                      width: '100%',
+                      marginTop: 1,
+                      padding: '4px',
+                      paddingLeft: '8px',
+                      border: '1px solid rgba(0, 0, 0, 0.12)',
+                      backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                      transition: 'background-color 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                      },
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                    onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
+                  >
+                    <Typography variant="body2">
+                      {judges.find(j => j.id === selectedJudgeId)?.name || 'Selected Judge'}
+                    </Typography>
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleJudgeSelect(0);
+                      }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 )}
               </AccordionSummary>
               <AccordionDetails>
-                <TextField
-                  variant="outlined"
-                  size="small"
-                  placeholder="Search judges..."
-                  value={judgeSearchTerm}
-                  onChange={handleJudgeSearchChange}
-                  fullWidth
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                  className="filter-search-input"
-                />
-                {/* Content will be added in future steps */}
+                {judgeAccordionExpanded && (
+                  <>
+                    <TextField 
+                      label="Search Judges"
+                      variant="outlined"
+                      fullWidth
+                      size="small"
+                      value={judgeSearchTerm}
+                      onChange={(e) => setJudgeSearchTerm(e.target.value)}
+                      sx={{
+                        mt: 0,
+                        mb: 0,
+                        '& .MuiOutlinedInput-root': {
+                          borderBottomLeftRadius: 0,
+                          borderBottomRightRadius: 0,
+                        }
+                      }}
+                    />
+                    <SelectionList
+                      items={visibleJudges.filter(judge => 
+                        judge.name.toLowerCase().includes(judgeSearchTerm.toLowerCase()) && 
+                        judge.id !== selectedJudgeId
+                      )}
+                      selectedId={finalParams?.judgeId || 0}
+                      onSelect={handleJudgeSelect}
+                      searchTerm={judgeSearchTerm}
+                      loading={loadingJudges}
+                      loadMore={loadMoreJudges}
+                      hasMore={hasMoreJudges}
+                      type="judge"
+                    />
+                  </>
+                )}
               </AccordionDetails>
             </Accordion>
             
@@ -375,38 +674,105 @@ const ResultsPage = () => {
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="charge-filter-content"
                 id="charge-filter-header"
+                sx={{
+                  display: 'grid',
+                  gridTemplateAreas: `
+                    "title expandIcon"
+                    "selection selection"
+                  `,
+                  gridTemplateColumns: '1fr auto',
+                  alignItems: 'start',
+                  '& .MuiAccordionSummary-content': {
+                    display: 'contents', // This prevents flex layout from interfering
+                    margin: 0
+                  }
+                }}
               >
-                <Typography className="filter-summary-title">Charge</Typography>
-                {finalParams?.chargeId !== 0 && finalParams?.chargeId && (
-                  <Typography className="filter-summary-value">
-                    {chargeName || `Charge #${finalParams.chargeId}`}
-                  </Typography>
+                <Typography>
+                  Charge
+                </Typography>
+                
+                {selectedChargeId !== 0 && (
+                  <Box 
+                    sx={{ 
+                      gridArea: 'selection',
+                      width: '100%',
+                      marginTop: 1,
+                      padding: '4px',
+                      paddingLeft: '8px',
+                      border: '1px solid rgba(0, 0, 0, 0.12)',
+                      backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                      transition: 'background-color 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                      },
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                    onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
+                  >
+                    <Typography variant="body2">
+                      {chargeName || 'Selected Charge'}
+                    </Typography>
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleChargeSelect(0);
+                      }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 )}
               </AccordionSummary>
               <AccordionDetails>
-                <TextField
-                  variant="outlined"
-                  size="small"
-                  placeholder="Search charges..."
-                  value={chargeSearchTerm}
-                  onChange={handleChargeSearchChange}
-                  fullWidth
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                  className="filter-search-input"
-                />
-                {/* Content will be added in future steps */}
+                {chargeAccordionExpanded && (
+                  <>
+                    <TextField 
+                      label="Search Charges"
+                      variant="outlined"
+                      fullWidth
+                      size="small"
+                      value={chargeSearchTerm}
+                      onChange={handleChargeSearch}
+                      InputProps={{
+                        endAdornment: isTypingCharge ? <CircularProgress size={20} /> : null
+                      }}
+                      sx={{
+                        mt: 0,
+                        mb: 0,
+                        '& .MuiOutlinedInput-root': {
+                          borderBottomLeftRadius: 0,
+                          borderBottomRightRadius: 0,
+                        }
+                      }}
+                    />
+                    <SelectionList
+                      items={visibleCharges.filter(charge => 
+                        charge.name.toLowerCase().includes(chargeSearchTerm.toLowerCase()) && 
+                        charge.id !== selectedChargeId
+                      )}
+                      selectedId={finalParams?.chargeId || 0}
+                      onSelect={handleChargeSelect}
+                      searchTerm={debouncedChargeSearchTerm}
+                      loading={loadingCharges}
+                      loadMore={loadMoreCharges}
+                      hasMore={hasMoreCharges}
+                      type="charge"
+                    />
+                  </>
+                )}
               </AccordionDetails>
             </Accordion>
           </Box>
           <Box className="tab-container">
             <TabContext value={activeTab}>
               <Box className="results-tabs-container">
+                <div className="specification-title-text">
+                  {loading ? "Loading..." : `${totalCases.toLocaleString()} Total Cases`}
+                </div>
                 <Tabs
                   value={activeTab}
                   onChange={handleTabChange}

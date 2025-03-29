@@ -83,7 +83,6 @@ export function transformDispositionsData(rawData: ApiResponse): DispositionData
     { key: 'responsible', label: 'Responsible' },
     { key: 'guilty_plea', label: 'Guilty Plea' },
     { key: 'guilty', label: 'Guilty' },
-    { key: 'other', label: 'Other' }
   ];
   
   // Initialize disposition data array
@@ -240,7 +239,7 @@ export function transformBailData(rawData: ApiResponse): BailDecisionData[] {
       if (costField) {
         totalCost += (spec[costField as keyof SpecificationData] as number) || 0;
       }
-});
+    });
 
     // Calculate average cost
     const averageCost = count > 0 && costField ? totalCost / count : 0;
@@ -260,63 +259,62 @@ export function transformBailData(rawData: ApiResponse): BailDecisionData[] {
  * @returns An array of MotionData objects
  */
 export function transformMotionsData(rawData: ApiResponse): MotionData[] {
-  // Group by motion_id
-  const motionGroups = new Map<string, {
-    accepted: number;
-    denied: number;
-    other: number;
-    total: number;
-  }>();
-
+  if (!rawData || !rawData.motion_data || rawData.motion_data.length === 0) {
+    return [];
+  }
+  
+  // Map to store motion data grouped by motion_id
+  const motionMap: Record<string, MotionData> = {};
+  
   // Process each motion record
   rawData.motion_data.forEach(motion => {
-    const id = motion.motion_id;
+    // Create a new entry in the map if it doesn't exist
+    if (!motionMap[motion.motion_id]) {
+      motionMap[motion.motion_id] = {
+        type: motion.motion_id,
+        count: 0,
+        status: {
+          granted: 0,
+          denied: 0,
+          other: 0
+        },
+        partyFiled: {
+          granted: 0,
+          denied: 0,
+          other: 0
+        }
+      };
+    }
     
-    // Initialize if not exists
-    if (!motionGroups.has(id)) {
-      motionGroups.set(id, {
-        accepted: 0,
-        denied: 0,
-        other: 0,
-        total: 0
-      });
-}
+    // Update total counts for status (all parties)
+    motionMap[motion.motion_id].status.granted += motion.accepted || 0;
+    motionMap[motion.motion_id].status.denied += motion.denied || 0;
+    motionMap[motion.motion_id].status.other += 
+      (motion.no_action || 0) + 
+      (motion.advisement || 0) + 
+      (motion.unknown || 0);
     
-    const group = motionGroups.get(id)!;
+    // Update total count
+    motionMap[motion.motion_id].count += 
+      (motion.accepted || 0) + 
+      (motion.denied || 0) + 
+      (motion.no_action || 0) + 
+      (motion.advisement || 0) + 
+      (motion.unknown || 0);
     
-    // Accumulate counts - replace || with ?? for better null/undefined handling
-    group.accepted += motion.accepted ?? 0;
-    group.denied += motion.denied ?? 0;
-    group.other += (motion.no_action ?? 0) + (motion.advisement ?? 0) + (motion.unknown ?? 0);
-    
-    // Update total
-    group.total = group.accepted + group.denied + group.other;
+    // Update prosecution-specific counts (commonwealth = prosecution)
+    if (motion.party === 'commonwealth') {
+      motionMap[motion.motion_id].partyFiled.granted += motion.accepted || 0;
+      motionMap[motion.motion_id].partyFiled.denied += motion.denied || 0;
+      motionMap[motion.motion_id].partyFiled.other += 
+        (motion.no_action || 0) + 
+        (motion.advisement || 0) + 
+        (motion.unknown || 0);
+    }
   });
-
-  // Format for UI component
-  return Array.from(motionGroups.entries()).map(([id, counts]) => {
-    // Format motion_id for display (e.g., "dismiss" -> "Dismiss")
-    const displayType = id.split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-    
-    return {
-      type: displayType,
-      count: counts.total,
-      status: {
-        granted: counts.accepted,
-        denied: counts.denied,
-        other: counts.other
-      },
-      // For now, use the same data for partyFiled since we don't have this distinction
-      // In a real implementation, this would need to be handled differently
-      partyFiled: {
-        granted: counts.accepted,
-        denied: counts.denied,
-        other: counts.other
-      }
-    };
-}).filter(item => item.count > 0) // Filter out types with zero count
+  
+  // Convert map to array
+  return Object.values(motionMap);
 }
 
 /**

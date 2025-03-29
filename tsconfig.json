@@ -22,6 +22,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["../attorney-matchmaking-site/next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "../attorney-matchmaking-site/next.config.ts"],
+  "include": ["../attorney-matchmaking-site/next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "../attorney-matchmaking-site/next.config.ts", "scripts/register-user.js"],
   "exclude": ["node_modules"]
 }

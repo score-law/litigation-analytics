@@ -34,16 +34,19 @@
       .filter-title {
         width: 100%;
         text-align: left;
-        margin-top: var(--spacing-md);
+        margin-top: var(--spacing-lg);
         font-weight: 600;
+        font-size: 1.2rem;
+        padding-bottom: var(--spacing-sm);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.12);
       }
       
       .filter-accordion {
-        margin-bottom: var(--spacing-sm);
         box-shadow: none;
         border-bottom: 1px solid rgba(0, 0, 0, 0.12);
         background-color: transparent;
         transition: all 0.3s ease;
+        margin: 0;
         
         &:before {
           display: none;
@@ -51,7 +54,10 @@
         
         .MuiAccordionSummary-root {
           min-height: 48px;
-          padding: var(--spacing-sm) 0;
+          padding: 0;
+          padding-top: var(--spacing-md);
+          padding-bottom: var(--spacing-sm);
+          grid-row-gap: var(--spacing-sm);
           
           &.Mui-expanded {
             min-height: 48px;
@@ -94,8 +100,11 @@
   justify-content: flex-end;
 
   .specification-title-text {
+    padding-left: 1vw;
+    padding-top: 2vh;
     flex: 1;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
   }
 }
 

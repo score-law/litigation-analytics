@@ -9,7 +9,7 @@ export default function NavBar() {
             </Link>
             <nav>
                 <ul>
-                    <li><Link href="/search">Search</Link></li>
+                    <li><Link href="/">Search</Link></li>
                 </ul>
             </nav>
         </header>

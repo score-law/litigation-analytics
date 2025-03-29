@@ -83,6 +83,16 @@ const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
     };
   }, [data, viewMode, displayMode]);
 
+  // Calculate xAxisLabel based on viewMode and displayMode
+  // MOVED: This useMemo is now above the conditional return
+  const xAxisLabel = useMemo(() => {
+    if (viewMode === 'comparative') {
+      return 'Relative to Average';
+    } else {
+      return displayMode === 'frequency' ? 'Percentage' : 'Average Duration/Cost';
+    }
+  }, [viewMode, displayMode]);
+
   // If no data, display a message
   if (!data || data.length === 0) {
     return (
@@ -91,14 +101,6 @@ const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
       </Box>
     );
   }
-
-  const xAxisLabel = useMemo(() => {
-    if (viewMode === 'comparative') {
-      return 'Relative to Average';
-    } else {
-      return displayMode === 'frequency' ? 'Percentage' : 'Average Duration/Cost';
-    }
-  }, [viewMode, displayMode]);
 
   return (
     <div className="sentences-container">

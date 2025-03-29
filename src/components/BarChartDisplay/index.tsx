@@ -30,22 +30,22 @@ const CHART_COLORS = [
 
 // Interface definitions for the component props
 interface BarChartDisplayProps {
-    chartData: {
-      labels: string[];
-      datasets: Array<{
-        data: number[];
-        label: string;
-        color?: string;
-        stack?: string;
-        valueFormatter?: (value: number | null) => string;
-        highlightScope?: { highlighted: string; faded: string };
-      }>;
-    };
-    layout?: 'horizontal' | 'vertical';
-    xAxisLabel?: string;
-    viewMode?: 'objective' | 'comparative';
-    margin?: { top: number; bottom: number; left: number; right: number };
-    className?: string;
+  chartData: {
+    labels: string[];
+    datasets: Array<{
+      data: (number | null)[];  // Updated to allow null values
+      label: string;
+      color?: string;
+      stack?: string;
+      valueFormatter?: (value: number | null) => string;
+      highlightScope?: { highlighted: string; faded: string };
+    }>;
+  };
+  layout?: 'horizontal' | 'vertical';
+  xAxisLabel?: string;
+  viewMode?: 'objective' | 'comparative';
+  margin?: { top: number; bottom: number; left: number; right: number };
+  className?: string;
 }
 
 // Create a custom value formatter for comparative mode
@@ -106,7 +106,7 @@ const BarChartDisplay = ({
     // Transform the data if in comparative mode
     const transformedData = Array.isArray(dataset.data)
       ? dataset.data.map((val) => {
-          if (val === null || val === undefined) return 0;
+          if (val === null || val === undefined) return null;  // Keep null values as null
           // Shift value by subtracting 1 only in comparative mode
           return viewMode === 'comparative' ? val - 1 : val;
         })
@@ -135,8 +135,13 @@ const BarChartDisplay = ({
   if (viewMode === 'comparative') {
     const allValues = safeDatasets.flatMap((ds) => ds.data);
     
+    // Filter out null values before calculating maximum magnitude
+    const validValues = allValues.filter(value => value !== null) as number[];
+    
     // Find the maximum magnitude (absolute value) from all data points
-    const maxMagnitude = Math.max(...allValues.map(value => Math.abs(value)));
+    const maxMagnitude = validValues.length > 0 
+      ? Math.max(...validValues.map(value => Math.abs(value))) 
+      : 1; // Default to 1 if no valid values
     
     // Add a 10% buffer to ensure data points aren't too close to the edges
     const buffer = maxMagnitude * 0.1;
@@ -230,7 +235,7 @@ const BarChartDisplay = ({
             fontWeight: 600,
           },
         }}
-        tooltip={{ trigger: 'item' }}
+        tooltip={{ trigger: 'axis' }}
       />
     </div>
   );

@@ -133,6 +133,7 @@ export interface MotionTableData {
 
 export interface ApiMotionData extends RowDataPacket {
   motion_id: string;
+  party: string;
   accepted?: number;
   denied?: number;
   no_action?: number;

@@ -15,16 +15,11 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
   const valueFormatter = (value: number | null, trialType?: string) => {
     if (value === null) return '';
     if (viewMode === 'comparative') {
-      if (Math.abs(value - 1) < 0.05)
-        return 'Average';
       return value > 1
         ? `${Math.abs((value - 1) * 100).toFixed(0)}% above average`
         : `${Math.abs((value - 1) * 100).toFixed(0)}% below average`;
     } else {
-      const trialTypeLabel = trialType 
-        ? ` at ${trialType === 'bench' ? 'bench trial' : trialType === 'jury' ? 'jury trial' : 'no trial'}`
-        : '';
-      return `${(value * 100).toFixed(0)}% of dispositions${trialTypeLabel}`;
+      return `${(value * 100).toFixed(0)}% of dispositions`;
     }
   };
 
@@ -82,7 +77,7 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
       labels,
       datasets
     };
-  }, [data, viewMode, trialTypeFilter]);
+  }, [data, viewMode, trialTypeFilter, valueFormatter]);
 
   // If no data, display a message
   if (!data || data.length === 0) {

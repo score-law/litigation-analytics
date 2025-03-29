@@ -45,7 +45,7 @@ export function getChargeName(chargeId: number): string {
   const placeholderName = `Charge #${chargeId}`;
   
   // Fetch the charge data asynchronously and update the DOM when it's ready
-  fetch(`/api/charge?chargeId=${chargeId}`)
+  fetch(`/api/charges?chargeId=${chargeId}`)
     .then(response => {
       if (!response.ok) throw new Error('Failed to fetch charge name');
       return response.json();
