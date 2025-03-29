@@ -157,7 +157,9 @@ const ResultsPage = () => {
         setAverageData(transformedAverageData);
       }
 
-      loading ? setLoading(false) : null;
+      if (loading) {
+        setLoading(false)
+      }
 
       // Update finalParams for reference
       setFinalParams({
