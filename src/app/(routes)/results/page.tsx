@@ -157,6 +157,8 @@ const ResultsPage = () => {
         setAverageData(transformedAverageData);
       }
 
+      loading ? setLoading(false) : null;
+
       // Update finalParams for reference
       setFinalParams({
         courtId: court,

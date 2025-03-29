@@ -29,11 +29,6 @@ export default function PasswordProtection({ children }: { children: React.React
 
     // Verify the token
     const decodedToken = verifyToken(token);
-
-    // After retrieving the token
-    console.log('Token retrieved from localStorage:', token);
-    // After verifying
-    console.log('Token verification result:', decodedToken);
     
     if (!decodedToken) {
       // Invalid or expired token, clear it and redirect to login
