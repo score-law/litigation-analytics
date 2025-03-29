@@ -5,7 +5,7 @@ import "./globals.scss";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import PasswordProtection from "@/components/PasswordProtection";
-//import { PostHogProvider } from "@/components/PostHogProvider";
+import { PostHogProvider } from "@/components/PostHogProvider";
 
 export const metadata: Metadata = {
   title: "Score",
@@ -18,13 +18,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {/*<PostHogProvider>*/}
+        <PostHogProvider>
           <PasswordProtection>
             <NavBar />
             <main>{children}</main>
             <Footer />
           </PasswordProtection>
-        {/*</PostHogProvider>*/}
+        </PostHogProvider>
       </body>
     </html>
   );

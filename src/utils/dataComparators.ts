@@ -150,59 +150,90 @@ export function calculateComparativeDispositionsData(
     });
   }
   
-  /**
-   * Calculates comparative metrics for motion data by comparing with averages.
-   * In this updated version, we calculate the granted/total ratio for each motion
-   * type and compare with the average granted/total ratio.
-   * 
-   * @param data - The current motion data
-   * @param averageData - The average motion data
-   * @returns Motion data with comparative metrics
-   */
-  export function calculateComparativeMotionsData(
-    data: MotionData[], 
-    averageData: MotionData[]
-  ): MotionData[] {
-    if (!data || !averageData || data.length === 0 || averageData.length === 0) {
-      return [];
+/**
+ * Calculates comparative metrics for motion data by comparing with averages.
+ * Calculates separate comparative ratios for all motions, prosecution motions, and defense motions.
+ * 
+ * @param data - The current motion data
+ * @param averageData - The average motion data
+ * @returns Motion data with comparative metrics
+ */
+export function calculateComparativeMotionsData(
+  data: MotionData[], 
+  averageData: MotionData[]
+): MotionData[] {
+  // Create a map of average data for quick lookup
+  const averageMap = new Map<string, MotionData>();
+  averageData.forEach(item => {
+    averageMap.set(item.type, item);
+  });
+
+  return data.map(currentMotion => {
+    const avgMotion = averageMap.get(currentMotion.type);
+    
+    if (!avgMotion) {
+      // If no matching average data, return the current data unchanged
+      return currentMotion;
     }
-  
-    return data.map(currentMotion => {
-      // Find corresponding average data for this motion type
-      const averageMotion = averageData.find(avg => avg.type === currentMotion.type);
-      
-      if (!averageMotion) {
-        return currentMotion; // Return original if no average data found
+    
+    // Calculate overall comparative ratio (all motions)
+    const currentTotal = currentMotion.status.granted + currentMotion.status.denied;
+    const currentRatio = currentTotal > 0 ? currentMotion.status.granted / currentTotal : 0;
+    
+    const avgTotal = avgMotion.status.granted + avgMotion.status.denied;
+    const avgRatio = avgTotal > 0 ? avgMotion.status.granted / avgTotal : 0;
+    
+    // Avoid division by zero
+    const overallComparativeRatio = avgRatio > 0 ? currentRatio / avgRatio : 
+                                  (currentRatio > 0 ? 2 : 1); // 2 = better than average, 1 = same as average
+    
+    // Calculate prosecution-specific comparative ratio
+    const currentProsTotal = currentMotion.partyFiled.granted + currentMotion.partyFiled.denied;
+    const currentProsRatio = currentProsTotal > 0 ? currentMotion.partyFiled.granted / currentProsTotal : 0;
+    
+    const avgProsTotal = avgMotion.partyFiled.granted + avgMotion.partyFiled.denied;
+    const avgProsRatio = avgProsTotal > 0 ? avgMotion.partyFiled.granted / avgProsTotal : 0;
+    
+    const prosecutionComparativeRatio = avgProsRatio > 0 ? currentProsRatio / avgProsRatio : 
+                                     (currentProsRatio > 0 ? 2 : 1);
+    
+    // Calculate defense-specific comparative ratio
+    // Defense motion counts are derived by subtracting prosecution counts from total counts
+    const currentDefGranted = currentMotion.status.granted - currentMotion.partyFiled.granted;
+    const currentDefDenied = currentMotion.status.denied - currentMotion.partyFiled.denied;
+    const currentDefTotal = currentDefGranted + currentDefDenied;
+    const currentDefRatio = currentDefTotal > 0 ? currentDefGranted / currentDefTotal : 0;
+    
+    const avgDefGranted = avgMotion.status.granted - avgMotion.partyFiled.granted;
+    const avgDefDenied = avgMotion.status.denied - avgMotion.partyFiled.denied;
+    const avgDefTotal = avgDefGranted + avgDefDenied;
+    const avgDefRatio = avgDefTotal > 0 ? avgDefGranted / avgDefTotal : 0;
+    
+    const defenseComparativeRatio = avgDefRatio > 0 ? currentDefRatio / avgDefRatio :
+                                  (currentDefRatio > 0 ? 2 : 1);
+    
+    // Return the motion with all comparative ratios in a clearer structure
+    return {
+      ...currentMotion,
+      // For backward compatibility
+      count: overallComparativeRatio,
+      // Store the ratios in a more explicit structure
+      comparativeRatios: {
+        overall: overallComparativeRatio,
+        prosecution: prosecutionComparativeRatio,
+        defense: defenseComparativeRatio
+      },
+      // Maintain compatibility with existing structure
+      status: {
+        granted: overallComparativeRatio,
+        denied: 0,
+        other: 0
+      },
+      partyFiled: {
+        granted: prosecutionComparativeRatio, 
+        denied: 0,
+        other: 0
       }
-  
-      // Calculate current granted ratio (granted / total)
-      const currentTotal = currentMotion.status.granted + currentMotion.status.denied + currentMotion.status.other;
-      const currentGrantedRatio = currentTotal > 0 ? currentMotion.status.granted / currentTotal : 0;
-      
-      // Calculate average granted ratio
-      const averageTotal = averageMotion.status.granted + averageMotion.status.denied + averageMotion.status.other;
-      const averageGrantedRatio = averageTotal > 0 ? averageMotion.status.granted / averageTotal : 0;
-      
-      // Calculate comparative ratio (how current ratio compares to average)
-      // If average ratio is 0, use a special value to indicate infinity or N/A
-      const comparativeRatio = averageGrantedRatio > 0 
-        ? currentGrantedRatio / averageGrantedRatio
-        : currentGrantedRatio > 0 ? 2 : 1; // If average is 0, show as above average if current has grants
-      
-      // Create new motion object with the comparative metrics
-      return {
-        ...currentMotion,
-        count: comparativeRatio,
-        status: {
-          granted: comparativeRatio,
-          denied: 0,  // We're only showing granted ratio now
-          other: 0    // We're only showing granted ratio now
-        },
-        partyFiled: {
-          granted: comparativeRatio,
-          denied: 0,  // We're only showing granted ratio now
-          other: 0    // We're only showing granted ratio now
-        }
-      };
-    });
-  }
+    };
+  });
+}

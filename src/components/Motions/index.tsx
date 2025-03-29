@@ -26,23 +26,6 @@ interface MotionsTabProps {
 
 const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
 
-  // Create value formatter based on view mode
-  const valueFormatter = (value: number | null) => {
-    if (value === null) return '';
-    
-    if (viewMode === 'comparative') {
-      if (Math.abs(value - 1) < 0.05)
-        return 'Average';
-      
-      const percent = Math.abs((value - 1) * 100).toFixed(0);
-      return value > 1
-        ? `${percent}% above average`
-        : `${percent}% below average`;
-    } else {
-      return value.toString();
-    }
-  };
-
   // Process data for the chart
   const motionsChartData = useMemo(() => {
     if (!data || data.length === 0) {
@@ -51,18 +34,58 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
     
     const labels = data.map(item => item.type);
     
-    // Handle comparative view - only show granted ratio compared to average
+    // Handle comparative view using the clearer structure
     if (viewMode === 'comparative') {
-      return {
-        labels,
-        datasets: [
-          {
-            label: 'Granted Ratio',
-            data: data.map(item => item.status.granted === 0 ? null : item.status.granted),
-            backgroundColor: OUTCOME_COLORS.GRANTED,
-          }
-        ]
-      };
+      if (partyFilter === "all") {
+        // Show overall comparative data
+        return {
+          labels,
+          datasets: [
+            {
+              label: 'Granted Ratio',
+              data: data.map(item => {
+                const ratio = item.comparativeRatios?.overall ?? item.status.granted;
+                return ratio === 0 ? null : ratio;
+              }),
+              backgroundColor: OUTCOME_COLORS.GRANTED,
+            }
+          ]
+        };
+      } 
+      else if (partyFilter === "prosecution") {
+        // Show prosecution-specific comparative data
+        return {
+          labels,
+          datasets: [
+            {
+              label: 'Granted Ratio',
+              data: data.map(item => {
+                const ratio = item.comparativeRatios?.prosecution ?? item.partyFiled.granted;
+                return ratio === 0 ? null : ratio;
+              }),
+              backgroundColor: OUTCOME_COLORS.GRANTED,
+            }
+          ]
+        };
+      }
+      else if (partyFilter === "defense") {
+        // Show defense-specific comparative data
+        return {
+          labels,
+          datasets: [
+            {
+              label: 'Granted Ratio',
+              data: data.map(item => {
+                const ratio = item.comparativeRatios?.defense ?? 
+                  // Fallback calculation if the new structure isn't available
+                  (item.status.granted - item.partyFiled.granted);
+                return ratio === 0 ? null : ratio;
+              }),
+              backgroundColor: OUTCOME_COLORS.GRANTED,
+            }
+          ]
+        };
+      }
     }
     
     // Handle objective view with stacked bars
@@ -75,15 +98,12 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
             label: 'Granted',
             data: data.map(item => item.status.granted),
             backgroundColor: OUTCOME_COLORS.GRANTED,
-            stack: 'stack1',  // Same stack name for all datasets
-          },
+            stack: 'stack1',          },
           {
             label: 'Denied',
             data: data.map(item => item.status.denied),
             backgroundColor: OUTCOME_COLORS.DENIED,
-            stack: 'stack1',  // Same stack name for all datasets
-          }
-          // "Other" category intentionally hidden from visualization but preserved for future use
+            stack: 'stack1',          }
         ]
       };
     } 

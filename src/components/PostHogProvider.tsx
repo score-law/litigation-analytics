@@ -4,6 +4,7 @@ import posthog from "posthog-js"
 import { PostHogProvider as PHProvider, usePostHog } from "posthog-js/react"
 import { Suspense, useEffect } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
+import { verifyToken } from "@/utils/auth"
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -13,7 +14,30 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       capture_pageview: false, // We capture pageviews manually
       capture_pageleave: true, // Enable pageleave capture
     })
+
+    // After PostHog is initialized, check for existing authentication
+    identifyFromExistingToken();
   }, [])
+
+  // Function to identify user from existing token
+  const identifyFromExistingToken = () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const decodedToken = verifyToken(token);
+      if (!decodedToken || !decodedToken.email) return;
+
+      // Identify the user in PostHog
+      posthog.identify(decodedToken.email, {
+        email: decodedToken.email,
+        userId: decodedToken.userId
+      });
+    } catch (error) {
+      console.error("Error identifying returning user in PostHog:", error);
+      // Continue without identification - won't block the application
+    }
+  };
 
   return (
     <PHProvider client={posthog}>

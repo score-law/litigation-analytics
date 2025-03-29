@@ -44,7 +44,6 @@ export interface BailDecisionData {
   averageCost: number;
 }
 
-// Data types for motions tab
 export interface MotionData {
   type: string;
   count: number;
@@ -57,6 +56,11 @@ export interface MotionData {
     granted: number;
     denied: number;
     other: number;
+  };
+  comparativeRatios?: {
+    overall: number;
+    prosecution: number;
+    defense: number;
   };
 }
 

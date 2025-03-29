@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/db/connection';
 import { comparePassword, generateToken } from '@/utils/auth';
 import { RowDataPacket } from 'mysql2';
+import PostHogClient from '../../../../posthog';
 
 interface UserRow extends RowDataPacket {
   id: number;
@@ -49,6 +50,33 @@ export async function POST(req: NextRequest) {
 
     // Generate JWT token
     const token = generateToken(user.id, user.email);
+
+    // Identify user in PostHog after successful authentication
+    try {
+      const posthog = PostHogClient();
+      posthog.identify({
+        distinctId: user.email,
+        properties: {
+          email: user.email,
+          userId: user.id
+        }
+      });
+      
+      // Capture login event
+      posthog.capture({
+        distinctId: user.email,
+        event: 'user_login',
+        properties: {
+          $set: {
+            email: user.email,
+            userId: user.id
+          }
+        }
+      });
+    } catch (posthogError) {
+      // Log error but don't block login process
+      console.error('PostHog identification error:', posthogError);
+    }
 
     // Return success with token
     return NextResponse.json({ 
