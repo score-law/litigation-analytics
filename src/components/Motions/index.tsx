@@ -169,9 +169,23 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
       <div className="chart-section">
         <BarChartDisplay 
           chartData={motionsChartData} 
-          xAxisLabel={viewMode === 'comparative' ? 'Relative to Average' : 'Count'}
+          xAxisLabel={viewMode === 'comparative' ? 'Ratio of Motions Granted Relative to Average' : 'Number of Motions'}
           viewMode={viewMode}
           margin={{ top: 30, bottom: 50, left: 120, right: 120 }}
+          domainConfig={
+            viewMode === 'objective' 
+              ? { type: 'auto' } // Keep fixed scale for objective
+              : {
+                  type: 'dynamic',
+                  strategy: 'exponential',
+                  parameters: {
+                    baseBuffer: 0.6,    // 70% buffer for small values
+                    minBuffer: 0.1,     // 10% minimum buffer for large values
+                    decayFactor: 0.4,   // Moderate decay rate
+                    thresholdValue: 0.5, // Start reducing buffer at 0.5 (for comparative values)
+                  }
+                }
+          }
         />
       </div>
     </div>

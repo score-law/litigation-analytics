@@ -35,20 +35,22 @@ export function calculateComparativeDispositionsData(
         return item; // Return unchanged if no average found
       }
   
-      // Calculate comparative ratio
-      const comparativeRatio = average.ratio > 0 ? item.ratio / average.ratio : 0;
+      // Calculate comparative ratio - modified to handle zero/zero case
+      const comparativeRatio = average.ratio > 0 
+        ? item.ratio / average.ratio 
+        : 1;
       
-      // Calculate comparative trial type breakdown
+      // Calculate comparative trial type breakdown - modified to handle zero/zero case
       const comparativeTrialTypeBreakdown = {
         bench: average.trialTypeBreakdown.bench > 0 
           ? item.trialTypeBreakdown.bench / average.trialTypeBreakdown.bench
-          : 0,
+          : 1,
         jury: average.trialTypeBreakdown.jury > 0 
           ? item.trialTypeBreakdown.jury / average.trialTypeBreakdown.jury 
-          : 0,
+          : 1,
         none: average.trialTypeBreakdown.none > 0 
           ? item.trialTypeBreakdown.none / average.trialTypeBreakdown.none 
-          : 0,
+          : 1,
       };
   
       // Return the disposition with comparative metrics

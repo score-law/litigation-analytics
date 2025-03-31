@@ -19,6 +19,8 @@ const eslintConfig = [
       "@typescript-eslint/no-unused-vars": "off",
       // Disable the 'exhaustive-deps' rule
       "react-hooks/exhaustive-deps": "off",
+      // Disable the 'no-unsafe-assignment' rule
+      "@typescript-eslint/no-empty-object-types": "off",
     },
   },
 ];

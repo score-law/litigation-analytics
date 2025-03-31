@@ -1,5 +1,7 @@
 import './styles.scss';
 import Link from 'next/link';
+import Image from 'next/image';
+import Logo from '@/../public/logo.svg'
 
 export default function Footer() {
     return (
@@ -14,7 +16,7 @@ export default function Footer() {
             </nav>
             <div>
                 <div className="footer-logo">
-                    <p>Score</p>
+                    <Image src={Logo} alt="Logo" />
                 </div>
                 <p>© {new Date().getFullYear()} Score Inc. All Rights Reserved</p>
                 <div className="footer-links">

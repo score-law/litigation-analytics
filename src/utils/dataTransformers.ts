@@ -99,8 +99,6 @@ export function transformDispositionsData(rawData: ApiResponse): DispositionData
     // Calculate the overall ratio of this disposition type
     const ratio = baseSpec[key] / totalCharges;
     
-    console.log(`Processing disposition "${label}": ${baseSpec[key]}/${totalCharges} = ${ratio}`);
-    
     // Initialize trial type breakdown with zeros
     const trialTypeBreakdown = {
       bench: 0,
@@ -150,7 +148,7 @@ export function transformSentencesData(rawData: ApiResponse): SentenceData[] {
   // Define sentence types with their corresponding database fields
   const sentenceTypes = [
     { 
-      type: 'License Suspension',
+      type: 'License\nSuspension',
       countField: 'license_lost_count',
       totalField: null,
       daysField: 'total_license_lost_days',

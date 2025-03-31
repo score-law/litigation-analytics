@@ -17,12 +17,15 @@
 /* Main container - full width and height */
 .results-page-container {
   width: 100%;
-  min-height: calc(100vh - 90px);
+  position: relative;
+  min-height: calc(100vh - 70px);
   background: var(--background-light);
   padding: 0;
 
   .results-container{
     width: 100%;
+    height: 100%;
+    min-height: calc(100vh - 70px);
     display: flex;
     flex-direction: row;
 
@@ -51,6 +54,12 @@
         &:before {
           display: none;
         }
+
+        .delete-icon{
+          :hover{
+            color: var(--error);
+          }
+        }
         
         .MuiAccordionSummary-root {
           min-height: 48px;
@@ -58,20 +67,27 @@
           padding-top: var(--spacing-md);
           padding-bottom: var(--spacing-sm);
           grid-row-gap: var(--spacing-sm);
-          
+
           &.Mui-expanded {
             min-height: 48px;
           }
+
+          .custom-expand-icon {
+            color: var(--primary-light);
+            font-weight: 500;
+            transition: all 0.3s ease;
+          }
           
           .MuiAccordionSummary-content {
-            margin: 0;
+            margin: var(--spacing-xs) 0;
             flex-direction: column;
             align-items: flex-start;
-            
-            .filter-summary-title {
+
+            >p{
+              color: var(--primary-light);
               font-weight: 500;
             }
-            
+          
             .filter-summary-value {
               font-size: 0.875rem;
               color: var(--text-secondary);
@@ -87,6 +103,7 @@
   
     .tab-container {
       width: 80%;
+      padding-bottom: var(--spacing-lg);
       background: var(--background-light);
     }
   }
@@ -151,9 +168,8 @@
   width: 100%;
   padding: var(--spacing-md) var(--spacing-md) var(--spacing-lg);
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-height: 450px;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 .enhanced-toggle-button, .enhanced-category-toggle {
@@ -200,8 +216,7 @@
 
 /* Chart container with improved sizing and positioning */
 .chart-container {
-  margin: var(--spacing-md) 0;
-  height: 60vh;
+  margin: 0;
   width: 100%;
   overflow: visible;
   position: relative;
@@ -268,10 +283,6 @@
     padding: var(--spacing-sm);
     min-height: 400px;
   }
-  
-  .chart-container {
-    height: 400px;
-  }
 
   .breakdown-title {
     font-size: 0.95rem;
@@ -299,11 +310,6 @@
   
   .graph-section {
     min-height: 350px;
-  }
-  
-  .chart-container {
-    height: 350px;
-    margin: var(--spacing-sm) 0;
   }
 
   .chart-controls {

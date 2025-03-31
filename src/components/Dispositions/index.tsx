@@ -16,10 +16,10 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
     if (value === null) return '';
     if (viewMode === 'comparative') {
       return value > 1
-        ? `${Math.abs((value - 1) * 100).toFixed(0)}% above average`
-        : `${Math.abs((value - 1) * 100).toFixed(0)}% below average`;
+        ? `${Math.abs((value - 1)).toFixed(0)}% above average`
+        : `${Math.abs((value - 1)).toFixed(0)}% below average`;
     } else {
-      return `${(value * 100).toFixed(0)}% of dispositions`;
+      return `${(value).toFixed(0)}% of dispositions`;
     }
   };
 
@@ -44,7 +44,7 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
       datasets = [
         {
           label: 'Total',
-          data: data.map(item => item.ratio),
+          data: viewMode === 'objective' ? data.map(item => item.ratio * 100) : data.map(item => item.ratio),
           backgroundColor: '#805AD5', // Purple for total values
           valueFormatter: (value: number | null) => valueFormatter(value)
         }
@@ -66,7 +66,7 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
         {
           label: trialTypeFilter === 'bench' ? 'Bench Trial' : 
                  trialTypeFilter === 'jury' ? 'Jury Trial' : 'No Trial',
-          data: data.map(item => item.trialTypeBreakdown[trialTypeKey]),
+          data: viewMode === 'objective' ? data.map(item => item.trialTypeBreakdown[trialTypeKey] * 100) : data.map(item => item.trialTypeBreakdown[trialTypeKey]),
           backgroundColor: color,
           valueFormatter: (value: number | null) => valueFormatter(value, trialTypeKey)
         }
@@ -89,16 +89,30 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
   }
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Box sx={{ height: Math.max(300, data.length * 50) }}>
-        <BarChartDisplay
-          chartData={breakdownChartData}
-          layout="horizontal"
-          xAxisLabel={viewMode === 'comparative' ? 'Compared to Average' : 'Percentage of Total Cases'}
-          viewMode={viewMode}
-        />
-      </Box>
-    </Box>
+    <div className="disposition container">
+      <div className="chart-section">
+      <BarChartDisplay
+        chartData={breakdownChartData}
+        layout="horizontal"
+        xAxisLabel={viewMode === 'comparative' ? 'Disposition Rates Compared to Average' : 'Percentage of Total Cases'}
+        viewMode={viewMode}
+        domainConfig={
+          viewMode === 'objective' 
+            ? { type: 'fixed', min: 0, max: 100 } // Keep fixed scale for objective
+            : {
+                type: 'dynamic',
+                strategy: 'exponential',
+                parameters: {
+                  baseBuffer: 0.6,    // 70% buffer for small values
+                  minBuffer: 0.1,     // 10% minimum buffer for large values
+                  decayFactor: 0.4,   // Moderate decay rate
+                  thresholdValue: 0.5, // Start reducing buffer at 0.5 (for comparative values)
+                }
+              }
+        }
+      />
+      </div>
+    </div>
   );
 };
 

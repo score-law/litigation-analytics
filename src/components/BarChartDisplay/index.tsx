@@ -6,17 +6,43 @@
  * while allowing for flexible data input and customization.
  */
 'use client'
+
+import React, { useEffect, useRef } from 'react';
 import { BarChart } from '@mui/x-charts/BarChart';
-import { useRef, useEffect } from 'react';
-import './styles.scss';
+import './styles.scss'
+
+// Domain configuration types for controlling chart axis scales
+type DomainConfigAuto = { 
+  type: 'auto' 
+};
+
+type DomainConfigFixed = { 
+  type: 'fixed', 
+  min: number, 
+  max: number 
+};
+
+type DomainConfigDynamic = { 
+  type: 'dynamic', 
+  strategy: 'exponential', 
+  parameters: {
+    baseBuffer: number;    // Initial buffer percentage when values are small (e.g., 50%)
+    minBuffer: number;     // Minimum buffer percentage to approach (e.g., 10%)
+    decayFactor: number;   // Controls how quickly buffer reduces (higher = faster decay)
+    thresholdValue: number; // Value at which we start reducing buffer (e.g., 20)
+    safeguardMin?: number; // Optional minimum value for the domain (e.g., 0)
+  } 
+};
+
+type DomainConfig = DomainConfigAuto | DomainConfigFixed | DomainConfigDynamic;
 
 // Consistent color palette for better visual distinction between datasets
 const CHART_COLORS = [
   '#3182CE', // blue
-  '#E53E3E', // red
   '#38A169', // green
   '#805AD5', // purple
   '#DD6B20', // orange
+  '#E53E3E', // red
   '#319795', // teal
   '#D69E2E', // yellow
   '#4A5568', // gray
@@ -26,16 +52,15 @@ const CHART_COLORS = [
   '#276749'  // dark green
 ];
 
-/* Removed the COMPARATIVE_COLORS object */
-
 // Interface definitions for the component props
 interface BarChartDisplayProps {
   chartData: {
     labels: string[];
     datasets: Array<{
-      data: (number | null)[];  // Updated to allow null values
+      data: (number | null)[];      
       label: string;
       color?: string;
+      backgroundColor?: string; // Added backgroundColor property
       stack?: string;
       valueFormatter?: (value: number | null) => string;
       highlightScope?: { highlighted: string; faded: string };
@@ -46,6 +71,8 @@ interface BarChartDisplayProps {
   viewMode?: 'objective' | 'comparative';
   margin?: { top: number; bottom: number; left: number; right: number };
   className?: string;
+  domainConfig?: DomainConfig;
+  preserveStackInComparative?: boolean; // New prop for controlling stack behavior in comparative mode
 }
 
 // Create a custom value formatter for comparative mode
@@ -53,16 +80,56 @@ const createComparativeFormatter = () => {
   return (transformedValue: number | null) => {
     if (transformedValue === null || transformedValue === undefined) return '';
 
-    // Recalculate the actual value before transformation
-    const actualValue = transformedValue + 1;
-    const percent = Math.abs((actualValue - 1) * 100).toFixed(0);
-    const direction = actualValue >= 1 ? 'above' : 'below';
+    // No need to recalculate - the transformed value is already the percentage difference
+    // transformedValue is now directly the percentage above/below average
+    const percent = Math.abs(transformedValue).toFixed(0);
+    const direction = transformedValue >= 0 ? 'above' : 'below';
 
-    if (Math.abs(actualValue - 1) < 0.01) {
+    if (Math.abs(transformedValue) < 1) {
       return 'Average';
     }
     return `${percent}% ${direction} average`;
   };
+};
+
+/**
+ * Calculates domain min/max values based on dynamic configuration with exponential distribution
+ * This creates a buffer between the most offset bar and the edge of the chart
+ * The buffer decreases exponentially as values increase
+ */
+const calculateDynamicDomain = (
+  maxVal: number, 
+  config: DomainConfigDynamic,
+  isComparative: boolean
+): { min: number; max: number } => {
+  // For comparative mode, values are now on a 0-100 scale instead of 0-1
+  const scaleFactor = isComparative ? 1 : 1;
+  const { baseBuffer, minBuffer, decayFactor, thresholdValue, safeguardMin } = config.parameters;
+  
+  // For comparative mode, adjust the threshold value to account for the percentage scale
+  const adjustedThresholdValue = isComparative ? thresholdValue * 100 : thresholdValue;
+  
+  // Calculate buffer percentage using exponential decay
+  let bufferPercentage = baseBuffer;
+  if (maxVal > adjustedThresholdValue) {
+    bufferPercentage = minBuffer + (baseBuffer - minBuffer) * 
+      Math.exp(-decayFactor * (maxVal - adjustedThresholdValue) / adjustedThresholdValue);
+  }
+  
+  // Calculate what percentage of the graph the bar should take up
+  const barPercentage = 1 - bufferPercentage;
+  
+  // Calculate domain max
+  // If bufferPercentage is very close to 1, we need to cap it to avoid division by zero
+  const cappedBarPercentage = Math.max(barPercentage, 0.05); // At least 5% of graph for bars
+  const domainMax = maxVal / cappedBarPercentage;
+  
+  // Calculate domain min (different for comparative vs objective)
+  const domainMin = isComparative ? 
+    -domainMax : // For comparative, use symmetrical domain
+    (typeof safeguardMin === 'number' ? safeguardMin : 0); // For objective, use safeguardMin or 0
+  
+  return { min: domainMin, max: domainMax };
 };
 
 const BarChartDisplay = ({
@@ -70,9 +137,12 @@ const BarChartDisplay = ({
   layout = 'horizontal',
   xAxisLabel = '',
   viewMode = 'objective',
-  margin = { top: 30, bottom: 20, left: 120, right: 50 },
+  margin = { top: 30, bottom: 50, left: 120, right: 50 },
   className = '',
+  domainConfig = { type: 'auto' },
+  preserveStackInComparative = false, // Default to false for backward compatibility
 }: BarChartDisplayProps) => {
+  // ...existing code...
   // Reference for animation - moved before conditional return
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -107,14 +177,14 @@ const BarChartDisplay = ({
     const transformedData = Array.isArray(dataset.data)
       ? dataset.data.map((val) => {
           if (val === null || val === undefined) return null;  // Keep null values as null
-          // Shift value by subtracting 1 only in comparative mode
-          return viewMode === 'comparative' ? val - 1 : val;
+          // Shift value by subtracting 1 and multiplying by 100 in comparative mode
+          return viewMode === 'comparative' ? (val - 1) * 100 : val;
         })
       : [];
 
-    // Use CHART_COLORS for all modes
-    const color = CHART_COLORS[index % CHART_COLORS.length];
-
+    // Use backgroundColor if provided, fall back to color prop, then use chart colors
+    const color = dataset.backgroundColor || dataset.color || CHART_COLORS[index % CHART_COLORS.length];
+    
     // Adjust the valueFormatter based on viewMode to retain above/below identification
     let valueFormatter = dataset.valueFormatter;
     if (viewMode === 'comparative') {
@@ -124,43 +194,61 @@ const BarChartDisplay = ({
     return {
       data: transformedData,
       label: dataset.label || `Dataset ${index + 1}`,
-      color,
+      color: color,
+      backgroundColor: color,
       stack: dataset.stack || undefined,
       valueFormatter,
+      highlightScope: dataset.highlightScope,
     };
   });
 
   // Compute domain to accommodate negative & positive if in comparative mode
   let xAxis;
-  if (viewMode === 'comparative') {
-    const allValues = safeDatasets.flatMap((ds) => ds.data);
-    
-    // Filter out null values before calculating maximum magnitude
-    const validValues = allValues.filter(value => value !== null) as number[];
-    
-    // Find the maximum magnitude (absolute value) from all data points
-    const maxMagnitude = validValues.length > 0 
-      ? Math.max(...validValues.map(value => Math.abs(value))) 
-      : 1; // Default to 1 if no valid values
-    
-    // Add a 10% buffer to ensure data points aren't too close to the edges
-    const buffer = maxMagnitude * 0.1;
-    const symmetricalLimit = maxMagnitude + buffer;
-    
+
+  // Find maximum absolute value in the datasets
+  const maxVal = Math.max(
+    ...safeDatasets.flatMap((ds) =>
+      ds.data.filter((v): v is number => v !== null && !isNaN(v)).map(Math.abs)
+    ),
+    0.25 // Minimum range to avoid empty charts
+  );
+
+  console.log('Max Value:', maxVal);
+
+  if (domainConfig.type === 'fixed') {
+    // Fixed domain configuration
     xAxis = [
       {
         scaleType: 'linear' as const,
+        min: domainConfig.min,
+        max: domainConfig.max,
         label: xAxisLabel,
         labelStyle: {
           fontSize: 14,
           fontWeight: 600,
         },
-        // Set symmetrical domain around zero
-        min: -symmetricalLimit,
-        max: symmetricalLimit,
       },
     ];
-  } else {
+  }
+  else if (domainConfig.type === 'dynamic') {
+    // Dynamic domain configuration with exponential distribution
+    const dynamicDomain = calculateDynamicDomain(maxVal, domainConfig, viewMode === 'comparative');
+    console.log('Dynamic Domain:', dynamicDomain);
+    xAxis = [
+      {
+        scaleType: 'linear' as const,
+        min: dynamicDomain.min,
+        max: dynamicDomain.max,
+        label: xAxisLabel,
+        labelStyle: {
+          fontSize: 14,
+          fontWeight: 600,
+        },
+      },
+    ];
+  }
+  else{
+    // Auto domain configuration
     xAxis = [
       {
         scaleType: 'linear' as const,
@@ -197,6 +285,7 @@ const BarChartDisplay = ({
             tickLabelStyle: {
               fontSize: 12,
               padding: 4,
+              fontFamily: 'Inter',
             },
           },
         ]}
@@ -204,8 +293,14 @@ const BarChartDisplay = ({
         series={safeDatasets.map((dataset) => ({
           data: dataset.data,
           label: dataset.label,
+          labelStyle: {
+            fontFamily: 'Inter',
+            fontSize: 12,
+            fontWeight: 600,
+          },
           color: dataset.color,
-          stack: viewMode === 'comparative' ? undefined : dataset.stack,
+          backgroundColor: dataset.color,
+          stack: (viewMode === 'comparative' && !preserveStackInComparative) ? undefined : dataset.stack,
           valueFormatter: dataset.valueFormatter,
           highlightScope: {
             highlighted: 'item',
@@ -233,9 +328,12 @@ const BarChartDisplay = ({
           axisLabel: {
             fontSize: 14,
             fontWeight: 600,
+            fontFamily: 'Inter',
           },
         }}
-        tooltip={{ trigger: 'axis' }}
+        tooltip={{ 
+          trigger: 'axis'
+        }}
       />
     </div>
   );

@@ -17,6 +17,8 @@ import { calculateComparativeDispositionsData, calculateComparativeSentencesData
 calculateComparativeBailData, calculateComparativeMotionsData } from '@/utils/dataComparators';
 import { courts, judges } from '@/data';
 import { transformApiResponseToSearchResultData } from '@/utils/dataTransformers';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
 import CloseIcon from '@mui/icons-material/Close';
 import { SearchResultData, ViewMode } from '@/types';
 import DispositionsTab from '@/components/Dispositions';
@@ -27,6 +29,13 @@ import ViewModeToggle from '@/components/ViewModeToggle';
 import CategoryFilter from '@/components/CategoryFilter';
 import SelectionList from '@/components/SelectionList';
 import './styles.scss';
+
+// Custom expand icon component that switches between plus and minus
+const CustomExpandIcon = ({ expanded }: { expanded: boolean }) => (
+  expanded ? 
+    <RemoveIcon className="custom-expand-icon expanded" /> : 
+    <AddIcon className="custom-expand-icon" />
+);
 
 const ResultsPage = () => {
   const [activeTab, setActiveTab] = useState('dispositions');
@@ -131,7 +140,7 @@ const ResultsPage = () => {
 
       if (charge != finalParams?.chargeId) {
         let averageApiUrl;
-        if (charge == 0 || charge != 0 && judge != 0 && court != 0) {
+        if (charge == 0 || charge != 0 && judge == 0 && court == 0) {
           averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=0`;
         }
         else {
@@ -475,7 +484,7 @@ const ResultsPage = () => {
               className="filter-accordion"
             >
               <AccordionSummary
-                expandIcon={<ExpandMoreIcon />}
+                expandIcon={<CustomExpandIcon expanded={courtAccordionExpanded} />}
                 aria-controls="court-filter-content"
                 id="court-filter-header"
                 sx={{
@@ -487,8 +496,7 @@ const ResultsPage = () => {
                   gridTemplateColumns: '1fr auto',
                   alignItems: 'start',
                   '& .MuiAccordionSummary-content': {
-                    display: 'contents', // This prevents flex layout from interfering
-                    margin: 0
+                    display: 'contents',
                   }
                 }}
               >
@@ -503,7 +511,7 @@ const ResultsPage = () => {
                       width: '100%',
                       marginTop: 1,
                       padding: '4px',
-                      paddingLeft: '8px',
+                      paddingLeft: '12px',
                       border: '1px solid rgba(0, 0, 0, 0.12)',
                       backgroundColor: 'rgba(0, 0, 0, 0.02)',
                       transition: 'background-color 0.2s ease',
@@ -520,6 +528,7 @@ const ResultsPage = () => {
                       {visibleCourts.find(c => c.id === selectedCourtId)?.name || 'Selected Court'}
                     </Typography>
                     <IconButton 
+                      className='delete-icon'
                       size="small" 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -575,7 +584,7 @@ const ResultsPage = () => {
               className="filter-accordion"
             >
               <AccordionSummary 
-                expandIcon={<ExpandMoreIcon />}
+                expandIcon={<CustomExpandIcon expanded={judgeAccordionExpanded} />}
                 aria-controls="judge-filter-content"
                 id="judge-filter-header"
                 sx={{
@@ -587,8 +596,7 @@ const ResultsPage = () => {
                   gridTemplateColumns: '1fr auto',
                   alignItems: 'start',
                   '& .MuiAccordionSummary-content': {
-                    display: 'contents', // This prevents flex layout from interfering
-                    margin: 0
+                    display: 'contents',
                   }
                 }}
               >
@@ -603,7 +611,7 @@ const ResultsPage = () => {
                       width: '100%',
                       marginTop: 1,
                       padding: '4px',
-                      paddingLeft: '8px',
+                      paddingLeft: '12px',
                       border: '1px solid rgba(0, 0, 0, 0.12)',
                       backgroundColor: 'rgba(0, 0, 0, 0.02)',
                       transition: 'background-color 0.2s ease',
@@ -620,6 +628,7 @@ const ResultsPage = () => {
                       {judges.find(j => j.id === selectedJudgeId)?.name || 'Selected Judge'}
                     </Typography>
                     <IconButton 
+                      className='delete-icon'
                       size="small" 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -675,7 +684,7 @@ const ResultsPage = () => {
               className="filter-accordion"
             >
               <AccordionSummary
-                expandIcon={<ExpandMoreIcon />}
+                expandIcon={<CustomExpandIcon expanded={chargeAccordionExpanded} />}
                 aria-controls="charge-filter-content"
                 id="charge-filter-header"
                 sx={{
@@ -687,8 +696,7 @@ const ResultsPage = () => {
                   gridTemplateColumns: '1fr auto',
                   alignItems: 'start',
                   '& .MuiAccordionSummary-content': {
-                    display: 'contents', // This prevents flex layout from interfering
-                    margin: 0
+                    display: 'contents',
                   }
                 }}
               >
@@ -703,7 +711,7 @@ const ResultsPage = () => {
                       width: '100%',
                       marginTop: 1,
                       padding: '4px',
-                      paddingLeft: '8px',
+                      paddingLeft: '12px',
                       border: '1px solid rgba(0, 0, 0, 0.12)',
                       backgroundColor: 'rgba(0, 0, 0, 0.02)',
                       transition: 'background-color 0.2s ease',
@@ -719,7 +727,8 @@ const ResultsPage = () => {
                     <Typography variant="body2">
                       {chargeName || 'Selected Charge'}
                     </Typography>
-                    <IconButton 
+                    <IconButton
+                      className='delete-icon'
                       size="small" 
                       onClick={(e) => {
                         e.stopPropagation();

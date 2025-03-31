@@ -10,6 +10,12 @@ import { Typography, Box } from '@mui/material';
 import { SentenceData, ViewMode } from '@/types';
 import BarChartDisplay from '@/components/BarChartDisplay';
 
+// Consistent colors for sentence types
+const SENTENCE_TYPE_COLORS = {
+  DOLLARS: '#38A169', // Green
+  DAYS: '#3182CE',    // Blue
+};
+
 interface SentencesTabProps {
   data: SentenceData[];
   viewMode: ViewMode;
@@ -23,75 +29,98 @@ const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
       return { labels: [], datasets: [] };
     }
     
-    let chartValues;
     let chartLabel;
+    const labels = data.map(item => item.type);
     
     if (displayMode === 'frequency') {
-      chartValues = data.map(item => item.percentage);
+      const chartValues = data.map(item => item.percentage);
       chartLabel = 'Sentence Frequency';
-    } else { // severity mode
-      chartValues = data.map(item => {
-        // Use the appropriate severity value based on sentence type
-        const isMonetary = item.type.toLowerCase().includes('fine');
-        return isMonetary ? item.averageCost : item.averageDays;
-      });
-      chartLabel = 'Sentence Severity';
-    }
-
-    // Create map of sentence types for lookup in valueFormatter
-    const sentenceTypeMap: Record<number, string> = {};
-    data.forEach((item, index) => {
-      sentenceTypeMap[index] = item.type;
-    });
-    
-    return {
-      labels: data.map(item => item.type),
-      datasets: [
-        {
-          data: chartValues,
-          label: chartLabel,
-          color: 'var(--accent-main)',
-          valueFormatter: (value: number | null) => {
-            if (value === null) return '';
-            
-            // Look up the sentence type based on the current data point
-            const currentIndex = chartValues.indexOf(value);
-            const sentenceType = sentenceTypeMap[currentIndex];
-            const isMonetary = sentenceType?.toLowerCase().includes('fine');
-            
-            if (viewMode === 'comparative') {
-              if (Math.abs(value - 1) < 0.05) return 'Average';
-              const percent = Math.abs((value - 1) * 100).toFixed(0);
-              return value > 1 
-                ? `${percent}% above average` 
-                : `${percent}% below average`;
-            } else {
-              // Format based on display mode and sentence type
-              if (displayMode === 'frequency') {
-                return `${value.toFixed(1)}%`;
-              } else { // severity mode
-                if (isMonetary) {
-                  return `$${value.toFixed(0)}`;
-                } else {
-                  return `${value.toFixed(0)} days`;
-                }
+      
+      return {
+        labels,
+        datasets: [
+          {
+            data: chartValues,
+            label: chartLabel,
+            color: SENTENCE_TYPE_COLORS.DAYS,
+            backgroundColor: SENTENCE_TYPE_COLORS.DAYS,
+            valueFormatter: (value: number | null) => {
+              if (value === null) return '';
+              
+              if (viewMode === 'comparative') {
+                const percent = Math.abs((value - 1) * 100).toFixed(0);
+                return value > 1 
+                  ? `${percent}% above average` 
+                  : `${percent}% below average`;
+              } else {
+                return `${(value).toFixed(1)}%`;
               }
             }
           }
-        }
-      ]
-    };
-  }, [data, viewMode, displayMode]);
-
-  // Calculate xAxisLabel based on viewMode and displayMode
-  // MOVED: This useMemo is now above the conditional return
-  const xAxisLabel = useMemo(() => {
-    if (viewMode === 'comparative') {
-      return 'Relative to Average';
-    } else {
-      return displayMode === 'frequency' ? 'Percentage' : 'Average Duration/Cost';
+        ]
+      };
+    } else { // severity mode
+      // Create two separate datasets for dollars and days
+      const dollarValues = data.map(item => {
+        const isMonetary = item.type.toLowerCase().includes('fine');
+        return isMonetary ? item.averageCost : null;
+      });
+      
+      const dayValues = data.map(item => {
+        const isMonetary = item.type.toLowerCase().includes('fine');
+        return !isMonetary ? item.averageDays : null;
+      });
+      
+      // Create map of sentence types for lookup in valueFormatter
+      const sentenceTypeMap: Record<number, string> = {};
+      data.forEach((item, index) => {
+        sentenceTypeMap[index] = item.type;
+      });
+      
+      return {
+        labels,
+        datasets: [
+          {
+            data: dollarValues,
+            label: 'Dollars',
+            color: SENTENCE_TYPE_COLORS.DOLLARS,
+            backgroundColor: SENTENCE_TYPE_COLORS.DOLLARS,
+            stack: 'stack1',
+            valueFormatter: (value: number | null) => {
+              if (value === null) return '';
+              
+              if (viewMode === 'comparative') {
+                const percent = Math.abs((value - 1) * 100).toFixed(0);
+                return value > 1 
+                  ? `$${percent}% above average` 
+                  : `${percent}% below average`;
+              } else {
+                return `$${value.toFixed(2)}`;
+              }
+            }
+          },
+          {
+            data: dayValues,
+            label: 'Days',
+            backgroundColor: SENTENCE_TYPE_COLORS.DAYS, // Add backgroundColor property
+            stack: 'stack1',
+            valueFormatter: (value: number | null) => {
+              if (value === null) return '';
+              
+              if (viewMode === 'comparative') {
+                const percent = Math.abs((value - 1) * 100).toFixed(0);
+                return value > 1 
+                  ? `${percent}% above average` 
+                  : `${percent}% below average`;
+              } else {
+                return `${value.toFixed(0)} days`;
+              }
+            }
+          }
+        ]
+      };
     }
-  }, [viewMode, displayMode]);
+  }, [data, viewMode, displayMode]);
 
   // If no data, display a message
   if (!data || data.length === 0) {
@@ -107,8 +136,34 @@ const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
       <div className="chart-section">
         <BarChartDisplay 
           chartData={chartData} 
-          xAxisLabel={xAxisLabel}
+          xAxisLabel={viewMode === 'comparative' ? (displayMode === 'frequency' ? 'Sentencing Ratio Relative to Average' : 'Average Sentence Days/Dollars Relative to Average') : (displayMode === 'frequency' ? 'Percent of Cases Sentenced' : 'Average Sentence Days/Dollars')}
           viewMode={viewMode}
+          margin={{ top: 30, bottom: 50, left: 100, right: 50 }}
+          preserveStackInComparative={true}
+          domainConfig={
+            viewMode === 'objective' 
+              ? {
+                  type: 'dynamic',
+                  strategy: 'exponential',
+                  parameters: {
+                    baseBuffer: 0.8,    // 80% buffer for small values
+                    minBuffer: 0.1,     // 10% minimum buffer for large values
+                    decayFactor: 0.5,   // Moderate decay rate
+                    thresholdValue: 5,  // Start reducing buffer at 5
+                    safeguardMin: 0     // Ensure minimum is always 0
+                  }
+                }
+              : {
+                  type: 'dynamic',
+                  strategy: 'exponential',
+                  parameters: {
+                    baseBuffer: 0.6,    // 60% buffer for small values
+                    minBuffer: 0.1,     // 10% minimum buffer for large values
+                    decayFactor: 0.4,   // Moderate decay rate
+                    thresholdValue: 0.5, // Start reducing buffer at 0.5
+                  }
+                }
+          }
         />
       </div>
     </div>

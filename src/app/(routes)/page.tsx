@@ -9,34 +9,72 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Autocomplete, TextField, IconButton, Box, Grid, Button, Typography } from '@mui/material';
+import { Autocomplete, TextField, IconButton, Box, Grid, Button, Typography, CircularProgress } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import { useRouter } from 'next/navigation';
 import './styles.scss';
 import { Charge, Court, Judge } from '@/types';
 import { courts, judges } from '@/data';
+import { Delete } from '@mui/icons-material';
 
 /**
- * Fetch charges from the API, then transform the property "charge_id" into "id"
- * so that it fits our Charge interface.
+ * Fetch charges from the API with pagination and search support.
+ * Transforms the response to match the Charge interface.
+ * 
+ * @param search - Optional search term to filter charges
+ * @param limit - Number of results to return per page
+ * @param offset - Starting position for pagination
+ * @returns Object containing charges array and total count
  */
-const fetchCharges = async (): Promise<Charge[]> => {
+const fetchCharges = async (
+  search: string = '',
+  limit: number = 20,
+  offset: number = 0
+): Promise<{ charges: Charge[], total: number }> => {
   try {
-    const response = await fetch('/api/charges');
+    // Build URL with query parameters
+    const url = new URL('/api/charges', window.location.origin);
+    if (search) url.searchParams.append('search', search);
+    if (limit > 0) url.searchParams.append('limit', limit.toString());
+    if (offset > 0) url.searchParams.append('offset', offset.toString());
+    
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to fetch charges');
     }
+    
     const data = await response.json();
-    // Transform any row { charge_id, name } into { id, name }
-    return data.map((c: any) => ({
-      severity: c.severity,
-      id: c.charge_id,
-      name: c.name
-    }));
+    
+    // Handle both paginated responses and legacy responses
+    if (data.charges && data.total !== undefined) {
+      // Transform API response to match Charge interface
+      const transformedCharges = data.charges.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        severity: c.severity || 0 // Default to 0 if not provided
+      }));
+      
+      return {
+        charges: transformedCharges,
+        total: data.total
+      };
+    } else {
+      // Handle legacy response (array of charges)
+      const transformedCharges = data.map((c: any) => ({
+        id: c.id || c.charge_id, // Handle both formats
+        name: c.name,
+        severity: c.severity || 0 // Default to 0 if not provided
+      }));
+      
+      return {
+        charges: transformedCharges,
+        total: transformedCharges.length
+      };
+    }
   } catch (error) {
     console.error('Error fetching charges:', error);
-    return [];
+    return { charges: [], total: 0 };
   }
 };
 
@@ -44,83 +82,120 @@ const SearchForm: React.FC = () => {
   // State for form selections
   const [courtroom, setCourtroom] = useState<Court | null>(null);
   const [judge, setJudge] = useState<Judge | null>(null);
-  const [charges, setCharges] = useState<(Charge | null)[]>([null]); // Start with one empty charge input
+
+  const [selectedCharge, setSelectedCharge] = useState<Charge | null>(null);
 
   // State for options data
   const [courtroomOptions, setCourtroomOptions] = useState<Court[]>([]);
   const [judgeOptions, setJudgeOptions] = useState<Judge[]>([]);
-  const [chargeOptions, setChargeOptions] = useState<Charge[]>([]);
+  
+  // New state for charge search and pagination
+  const [chargeSearchTerm, setChargeSearchTerm] = useState('');
+  const [debouncedChargeSearchTerm, setDebouncedChargeSearchTerm] = useState('');
+  const [isTypingCharge, setIsTypingCharge] = useState(false);
+  const [visibleCharges, setVisibleCharges] = useState<Charge[]>([]);
+  const [loadingCharges, setLoadingCharges] = useState(false);
+  const [hasMoreCharges, setHasMoreCharges] = useState(true);
 
   // Router for navigation
   const router = useRouter();
 
-  // On mount, load court, judge, and charge data
+  // Debounce effect for charge search
+  useEffect(() => {
+    setIsTypingCharge(true);
+    
+    const timer = setTimeout(() => {
+      setDebouncedChargeSearchTerm(chargeSearchTerm);
+      setIsTypingCharge(false);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [chargeSearchTerm]);
+
+  // Load charges when debounced search term changes
+  useEffect(() => {
+    // Reset visible charges when search term changes
+    setVisibleCharges([]);
+    loadInitialCharges(debouncedChargeSearchTerm);
+  }, [debouncedChargeSearchTerm]);
+
+  // On mount, load court and judge data
   useEffect(() => {
     const fetchData = async () => {
       setCourtroomOptions(courts);
       setJudgeOptions(judges);
-      const fetchedCharges = await fetchCharges();
-      setChargeOptions(fetchedCharges);
+      // Initial charge loading is now handled by the debounced search effect
     };
     fetchData();
   }, []);
 
+  /**
+   * Load the initial set of charges, optionally filtered by search term
+   */
+  const loadInitialCharges = async (search: string = '') => {
+    setLoadingCharges(true);
+    try {
+      const { charges, total } = await fetchCharges(search);
+      setVisibleCharges(charges);
+      setHasMoreCharges(charges.length < total);
+    } catch (error) {
+      console.error('Error loading initial charges:', error);
+    } finally {
+      setLoadingCharges(false);
+    }
+  };
+
+  /**
+   * Load more charges when scrolling (for infinite scrolling)
+   */
+  const loadMoreCharges = async () => {
+    if (loadingCharges || !hasMoreCharges) return;
+    
+    setLoadingCharges(true);
+    try {
+      const { charges, total } = await fetchCharges(
+        debouncedChargeSearchTerm, 
+        20, 
+        visibleCharges.length
+      );
+      
+      setVisibleCharges(prev => [...prev, ...charges]);
+      setHasMoreCharges(visibleCharges.length + charges.length < total);
+    } catch (error) {
+      console.error('Error loading more charges:', error);
+    } finally {
+      setLoadingCharges(false);
+    }
+  };
+
   // Handle selection of a charge in the Autocomplete
-  const handleChargeChange = (value: Charge | null, index: number) => {
-    const updatedCharges = [...charges];
-    updatedCharges[index] = value;
-    setCharges(updatedCharges);
-
-    // If the last field is now filled, add another blank input
-    if (index === charges.length - 1 && value) {
-      setCharges([...updatedCharges, null]);
-    }
+  const handleChargeChange = (value: Charge | null) => {
+    setSelectedCharge(value);
   };
 
-  // Handle deletion of a particular charge field
-  const handleDeleteCharge = (index: number) => {
-    const updatedCharges = charges.filter((_, idx) => idx !== index);
-
-    // Ensure at least one blank input remains
-    if (updatedCharges.length === 0) {
-      updatedCharges.push(null);
-    }
-    setCharges(updatedCharges);
+  const handleChargeSearch = (_event: React.SyntheticEvent<Element, Event>, value: string) => {
+    setChargeSearchTerm(value);
   };
 
-  // Click handler for the "Search Analytics" button
   const handleSearch = () => {
-    // Filter out any null entries
-    const validCharges = charges.filter((c) => c !== null);
-
     // Build query params
     const params = new URLSearchParams();
-
+  
     // Add courtroom ID if selected
     if (courtroom) {
       params.append('courtId', courtroom.id.toString());
     }
-
+  
     // Add judge ID if selected
     if (judge) {
       params.append('judgeId', judge.id.toString());
     }
-
-    // Add each charge ID
-    if (validCharges.length > 0) {
-      let maxSeverityCharge = '';
-      let maxSeverity = 0;
-      validCharges.forEach(charge => {
-        if (charge) {
-          if (charge.severity >= maxSeverity) {
-            maxSeverity = charge.severity;
-            maxSeverityCharge = charge.id.toString();
-          }
-        }
-      });
-      params.append('chargeId', maxSeverityCharge);
+  
+    // Add charge ID if selected
+    if (selectedCharge) {
+      params.append('chargeId', selectedCharge.id.toString());
     }
-
+  
     // Redirect to /results with the query string
     router.push(`/results?${params.toString()}`);
   };
@@ -148,13 +223,23 @@ const SearchForm: React.FC = () => {
           variant="h4" 
           component="h1" 
           sx={{ 
-            mb: 3, 
+            mb: 1, 
             color: 'var(--primary-dark)',
             fontWeight: 600,
             textAlign: 'center' 
           }}
         >
           Case Analytics Search
+        </Typography>
+        <Typography 
+          variant="subtitle1" 
+          sx={{ 
+            mb: 3, 
+            color: 'var(--neutral-dark)', 
+            textAlign: 'center' 
+          }}
+        >
+          Search for case analytics by selecting any combination of a courtroom, judge, and charges.
         </Typography>
 
         {/* Court and Judge Section */}
@@ -199,57 +284,52 @@ const SearchForm: React.FC = () => {
 
         {/* Charges Section */}
         <Box className="search-section">
-          <Typography className="search-section-title">
-            Case Charges
-          </Typography>
-          <Typography 
-            variant="body2" 
-            color="textSecondary"
-            sx={{ mb: 2, color: 'var(--text-muted)' }}
-          >
-            Add one or more charges to analyze. Additional charge fields will appear automatically.
-          </Typography>
-
-          {charges.map((charge, index) => (
-            <Box key={index} className="charge-item">
-              <Autocomplete
-                value={charge}
-                onChange={(_event, newValue) => handleChargeChange(newValue, index)}
-                options={chargeOptions}
-                getOptionLabel={(option) => option.name}
-                sx={{ flexGrow: 1 }}
-                renderInput={(params) => (
-                  <TextField 
-                    {...params} 
-                    label={`Charge ${index + 1}`} 
-                    variant="outlined"
-                    sx={inputStyles}
-                  />
-                )}
-              />
-              {charges.length > 1 && (
-                <IconButton
-                  aria-label="delete"
-                  onClick={() => handleDeleteCharge(index)}
-                  className="delete-icon"
-                  sx={{
-                    color: 'var(--neutral-medium)',
-                    '&:hover': { color: 'var(--error)' }
+          <Box sx={{ position: 'relative', mb: 1 }}>
+            <Autocomplete
+              value={selectedCharge}
+              onChange={(_event, newValue) => handleChargeChange(newValue)}
+              options={visibleCharges}
+              getOptionLabel={(option) => option.name}
+              loading={loadingCharges || isTypingCharge}
+              onInputChange={handleChargeSearch}
+              filterOptions={(x) => x} // Disable built-in filtering
+              renderInput={(params) => (
+                <TextField 
+                  {...params}
+                  label="Charge"
+                  variant="outlined"
+                  sx={inputStyles}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {(loadingCharges || isTypingCharge) && <CircularProgress color="inherit" size={20} />}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
                   }}
-                >
-                  <DeleteIcon />
-                </IconButton>
+                />
               )}
-            </Box>
-          ))}
+              ListboxProps={{
+                onScroll: (event) => {
+                  const listboxNode = event.currentTarget;
+                  if (
+                    listboxNode.scrollTop + listboxNode.clientHeight >= listboxNode.scrollHeight - 20 &&
+                    hasMoreCharges &&
+                    !loadingCharges
+                  ) {
+                    loadMoreCharges();
+                  }
+                },
+              }}
+            />
+          </Box>
         </Box>
 
-        {/* Search Button */}
         <Box
           sx={{
             display: 'flex',
             justifyContent: 'center',
-            mt: 2
           }}
         >
           <Button

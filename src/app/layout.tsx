@@ -7,6 +7,14 @@ import Footer from "@/components/Footer";
 import PasswordProtection from "@/components/PasswordProtection";
 import { PostHogProvider } from "@/components/PostHogProvider";
 
+import { Inter } from 'next/font/google'
+ 
+// If loading a variable font, you don't need to specify the font weight
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: "Score",
   description: "Get detailed information on lawyers and law firms in your area.",
@@ -16,7 +24,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={inter.className}>
       <body>
         <PostHogProvider>
           <PasswordProtection>
