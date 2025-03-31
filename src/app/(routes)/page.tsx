@@ -239,7 +239,7 @@ const SearchForm: React.FC = () => {
             textAlign: 'center' 
           }}
         >
-          Search for case analytics by selecting any combination of a courtroom, judge, and charges.
+          Search for case analytics by selecting any combination of a courtroom, judge, and/or charges.
         </Typography>
 
         {/* Court and Judge Section */}

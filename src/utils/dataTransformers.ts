@@ -194,7 +194,7 @@ export function transformSentencesData(rawData: ApiResponse): SentenceData[] {
       if (daysField) {
         totalDays += (spec[daysField as keyof SpecificationData] as number) || 0;
       }
-});
+    });
 
     // Calculate percentage, average days, and average cost
     const percentage = totalChargesDisposed > 0 ? (count / totalChargesDisposed) * 100 : 0;
@@ -207,7 +207,7 @@ export function transformSentencesData(rawData: ApiResponse): SentenceData[] {
       averageDays,
       averageCost
     };
-  }).filter(item => item.percentage > 0); // Filter out types with zero percentage
+  })
 }
 
 /**

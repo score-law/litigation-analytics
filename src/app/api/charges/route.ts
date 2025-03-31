@@ -56,7 +56,7 @@ async function getSingleCharge(chargeId: string) {
 
   try {
     const charges = await query<any & RowDataPacket[]>(
-      'SELECT charge_id as id, name FROM charges WHERE charge_id = ?',
+      'SELECT charge_id as id, name FROM charges WHERE is_active = 1 AND charge_id = ?',
       [parsedId]
     );
 
@@ -105,23 +105,23 @@ async function getPaginatedCharges(limitParam: string | null, offsetParam: strin
       const searchTerm = `%${search.trim()}%`;
       // For searches, use parameterized query for the search term only
       charges = await query<any & RowDataPacket[]>(
-        `SELECT DISTINCT charge_id as id, name FROM charges WHERE name LIKE ? ORDER BY name LIMIT ${limit} OFFSET ${offset}`,
+        `SELECT DISTINCT charge_id as id, name FROM charges WHERE is_active = 1 AND name LIKE ? ORDER BY name LIMIT ${limit} OFFSET ${offset}`,
         [searchTerm]
       );
       
       totalResult = await query<any & RowDataPacket[]>(
-        'SELECT COUNT(DISTINCT charge_id) as total FROM charges WHERE name LIKE ?',
+        'SELECT COUNT(DISTINCT charge_id) as total FROM charges WHERE is_active = 1 AND name LIKE ?',
         [searchTerm]
       );
     } else {
       // No search parameters, hard-code limit and offset
       charges = await query<any & RowDataPacket[]>(
-        `SELECT DISTINCT charge_id as id, name FROM charges ORDER BY name LIMIT ${limit} OFFSET ${offset}`,
+        `SELECT DISTINCT charge_id as id, name FROM charges WHERE is_active = 1 ORDER BY name LIMIT ${limit} OFFSET ${offset}`,
         []
       );
       
       totalResult = await query<any & RowDataPacket[]>(
-        'SELECT COUNT(DISTINCT charge_id) as total FROM charges',
+        'SELECT COUNT(DISTINCT charge_id) as total FROM charges WHERE is_active = 1',
         []
       );
     }
@@ -148,7 +148,7 @@ async function getPaginatedCharges(limitParam: string | null, offsetParam: strin
 async function getAllCharges() {
   try {
     const charges = await query<any & RowDataPacket[]>(
-      'SELECT DISTINCT charge_id as id, name FROM charges ORDER BY name',
+      'SELECT DISTINCT charge_id as id, name FROM charges WHERE is_active = 1 ORDER BY name',
       []
     );
     return NextResponse.json(charges);

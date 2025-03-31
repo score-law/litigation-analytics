@@ -142,7 +142,6 @@ const BarChartDisplay = ({
   domainConfig = { type: 'auto' },
   preserveStackInComparative = false, // Default to false for backward compatibility
 }: BarChartDisplayProps) => {
-  // ...existing code...
   // Reference for animation - moved before conditional return
   const chartRef = useRef<HTMLDivElement>(null);
 
