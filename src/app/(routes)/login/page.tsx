@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import './styles.scss';
+import posthog from 'posthog-js';  // Added PostHog import
+import { verifyToken } from '@/utils/auth';  // Added verifyToken utility import
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -26,8 +28,26 @@ export default function Login() {
 
       if (res.ok) {
         localStorage.setItem('token', data.token);
-        // After localStorage.setItem('token', data.token);
         console.log('Token saved to localStorage:', data.token);
+        
+        // Identify user in PostHog after successful login
+        try {
+          const decodedToken = verifyToken(data.token);
+          if (decodedToken && decodedToken.email) {
+            // Identify the user in PostHog
+            posthog.identify(decodedToken.email, {
+              email: decodedToken.email,
+              userId: decodedToken.userId
+            });
+            console.log('User identified in PostHog:', decodedToken.email);
+          } else {
+            console.warn('Could not decode token for PostHog identification');
+          }
+        } catch (posthogError) {
+          // Log error but don't block login flow
+          console.error('Error identifying user in PostHog:', posthogError);
+        }
+        
         router.push('/');
       } else {
         setError(data.message || 'Authentication failed');
