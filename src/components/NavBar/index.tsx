@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import Logo from '@/../public/logo.svg'
+import Button from '@mui/material/Button';
 import './styles.scss';
 
 export default function NavBar() {
@@ -11,7 +12,13 @@ export default function NavBar() {
             </Link>
             <nav>
                 <ul>
-                    <li><Link href="/">Search</Link></li>
+                    <li>
+                        <Link href="/">
+                            <Button variant='outlined'>
+                                New Search
+                            </Button>
+                        </Link>
+                    </li>
                 </ul>
             </nav>
         </header>

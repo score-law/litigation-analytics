@@ -9,14 +9,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Autocomplete, TextField, IconButton, Box, Grid, Button, Typography, CircularProgress } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Autocomplete, TextField, Box, Grid, Button, Typography, CircularProgress } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useRouter } from 'next/navigation';
 import './styles.scss';
 import { Charge, Court, Judge } from '@/types';
-import { courts, judges } from '@/data';
-import { Delete } from '@mui/icons-material';
+import { courts } from '@/data';
 
 /**
  * Fetch charges from the API with pagination and search support.
@@ -78,6 +76,44 @@ const fetchCharges = async (
   }
 };
 
+/**
+ * Fetch judges from the API with pagination and search support.
+ * Transforms the response to match the Judge interface.
+ * 
+ * @param search - Optional search term to filter judges
+ * @param limit - Number of results to return per page
+ * @param offset - Starting position for pagination
+ * @returns Object containing judges array and total count
+ */
+const fetchJudges = async (
+  search: string = '',
+  limit: number = 20,
+  offset: number = 0
+): Promise<{ judges: Judge[], total: number }> => {
+  try {
+    const searchParams = new URLSearchParams();
+    if (search) searchParams.append('search', search);
+    if (limit) searchParams.append('limit', limit.toString());
+    if (offset) searchParams.append('offset', offset.toString());
+    
+    const response = await fetch(`/api/judges?${searchParams.toString()}`);
+    
+    if (!response.ok) {
+      throw new Error(`Error fetching judges: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return {
+      judges: data.judges || [],
+      total: data.total || 0
+    };
+  } catch (error) {
+    console.error('Error fetching judges:', error);
+    return { judges: [], total: 0 };
+  }
+};
+
+
 const SearchForm: React.FC = () => {
   // State for form selections
   const [courtroom, setCourtroom] = useState<Court | null>(null);
@@ -87,7 +123,6 @@ const SearchForm: React.FC = () => {
 
   // State for options data
   const [courtroomOptions, setCourtroomOptions] = useState<Court[]>([]);
-  const [judgeOptions, setJudgeOptions] = useState<Judge[]>([]);
   
   // New state for charge search and pagination
   const [chargeSearchTerm, setChargeSearchTerm] = useState('');
@@ -96,6 +131,13 @@ const SearchForm: React.FC = () => {
   const [visibleCharges, setVisibleCharges] = useState<Charge[]>([]);
   const [loadingCharges, setLoadingCharges] = useState(false);
   const [hasMoreCharges, setHasMoreCharges] = useState(true);
+
+    const [visibleJudges, setVisibleJudges] = useState<Judge[]>([]);
+    const [loadingJudges, setLoadingJudges] = useState(false);
+    const [hasMoreJudges, setHasMoreJudges] = useState(true);
+    const [judgeSearchTerm, setJudgeSearchTerm] = useState('');
+    const [debouncedJudgeSearchTerm, setDebouncedJudgeSearchTerm] = useState('');
+    const [judgeOffset, setJudgeOffset] = useState(0);
 
   // Router for navigation
   const router = useRouter();
@@ -123,10 +165,73 @@ const SearchForm: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       setCourtroomOptions(courts);
-      setJudgeOptions(judges);
       // Initial charge loading is now handled by the debounced search effect
     };
     fetchData();
+  }, []);
+
+// Add these judge loading functions:
+/**
+ * Load initial set of judges for the search dropdown
+ * @param search - Optional search term to filter judges
+ */
+const loadInitialJudges = async (search: string = '') => {
+  setLoadingJudges(true);
+  setHasMoreJudges(true);
+  setJudgeOffset(0);
+  
+  try {
+    const result = await fetchJudges(search);
+    setVisibleJudges(result.judges);
+    setHasMoreJudges(result.judges.length < result.total);
+  } catch (error) {
+    console.error('Error loading initial judges:', error);
+    setVisibleJudges([]);
+    setHasMoreJudges(false);
+  } finally {
+    setLoadingJudges(false);
+  }
+};
+
+  /**
+   * Load more judges when scrolling in the dropdown
+   */
+  const loadMoreJudges = async () => {
+    if (loadingJudges || !hasMoreJudges) return;
+    
+    setLoadingJudges(true);
+    const newOffset = judgeOffset + 20;
+    
+    try {
+      const result = await fetchJudges(debouncedJudgeSearchTerm, 20, newOffset);
+      setVisibleJudges(prev => [...prev, ...result.judges]);
+      setJudgeOffset(newOffset);
+      setHasMoreJudges(visibleJudges.length + result.judges.length < result.total);
+    } catch (error) {
+      console.error('Error loading more judges:', error);
+    } finally {
+      setLoadingJudges(false);
+    }
+  };
+
+  // Add these useEffect hooks:
+  // Debounce effect for judge search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedJudgeSearchTerm(judgeSearchTerm);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [judgeSearchTerm]);
+
+  // Effect to load initial judges when debounced search term changes
+  useEffect(() => {
+    loadInitialJudges(debouncedJudgeSearchTerm);
+  }, [debouncedJudgeSearchTerm]);
+
+  // Initial load effect for judges
+  useEffect(() => {
+    loadInitialJudges();
   }, []);
 
   /**
@@ -200,6 +305,9 @@ const SearchForm: React.FC = () => {
     router.push(`/results?${params.toString()}`);
   };
 
+  // Check if no search options are selected
+  const hasNoSelections = !courtroom && !judge && !selectedCharge;
+
   // Styles for MUI TextField focus/hover
   const inputStyles = {
     '& .MuiOutlinedInput-root': {
@@ -264,17 +372,44 @@ const SearchForm: React.FC = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <Autocomplete
+                id="judge-select"
+                options={visibleJudges}
+                loading={loadingJudges}
+                getOptionLabel={(option) => option.name || ''}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
                 value={judge}
-                onChange={(_event, newValue) => setJudge(newValue)}
-                options={judgeOptions}
-                getOptionLabel={(option) => option.name}
+                onChange={(_, newValue) => {
+                  setJudge(newValue);
+                }}
+                onInputChange={(_, newInputValue) => {
+                  setJudgeSearchTerm(newInputValue);
+                }}
+                ListboxProps={{
+                  onScroll: (event) => {
+                    const listboxNode = event.currentTarget;
+                    if (
+                      !loadingJudges &&
+                      hasMoreJudges &&
+                      listboxNode.scrollTop + listboxNode.clientHeight >= listboxNode.scrollHeight - 80
+                    ) {
+                      loadMoreJudges();
+                    }
+                  },
+                }}
                 renderInput={(params) => (
-                  <TextField 
-                    {...params} 
-                    label="Judge" 
+                  <TextField
+                    {...params}
+                    label="Judge"
                     variant="outlined"
-                    fullWidth
-                    sx={inputStyles}
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {loadingJudges ? <CircularProgress color="inherit" size={20} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
                   />
                 )}
               />
@@ -336,19 +471,8 @@ const SearchForm: React.FC = () => {
             variant="contained"
             size="large"
             className="search-button"
+            disabled={hasNoSelections}
             onClick={handleSearch}
-            startIcon={<SearchIcon />}
-            sx={{
-              backgroundColor: 'var(--accent-main)',
-              '&:hover': {
-                backgroundColor: 'var(--accent-hover)',
-              },
-              padding: '10px 24px',
-              borderRadius: '4px',
-              textTransform: 'none',
-              fontWeight: 600,
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}
           >
             Search Analytics
           </Button>

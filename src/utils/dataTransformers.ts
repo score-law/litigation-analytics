@@ -30,9 +30,6 @@ export function transformDispositionsData(rawData: ApiResponse): DispositionData
     console.warn('No specification data available for dispositions transformation');
     return [];
   }
-
-  console.log('Raw specification data length:', rawData.specification.length);
-  console.log('Trial categories present:', rawData.specification.map(spec => spec.trial_category));
   
   // Get the 'any' category specification for total counts
   const anySpec = rawData.specification.find(spec => spec.trial_category === 'any');
@@ -48,21 +45,16 @@ export function transformDispositionsData(rawData: ApiResponse): DispositionData
     specByCategory[spec.trial_category] = spec;
   });
   
-  console.log('Trial categories found:', Object.keys(specByCategory));
-  
   // If 'any' spec doesn't exist, take the first spec as a fallback
   const baseSpec = anySpec || rawData.specification[0];
   
   // Total charges is our denominator for calculating ratios
   const totalCharges = baseSpec.total_charges_disposed || 0;
-  
-  console.log('Total charges for ratio calculation:', totalCharges);
 
   // Calculate total charges disposed for each trial type
   const trialTypeTotals = {
     bench: specByCategory['bench_trial']?.total_charges_disposed || 0,
-    jury: specByCategory['jury_trial']?.total_charges_disposed || 0,
-    none: specByCategory['no_trial']?.total_charges_disposed || 0
+    jury: specByCategory['jury_trial']?.total_charges_disposed || 0
   };
   
   console.log('Trial type totals:', trialTypeTotals);
@@ -116,13 +108,6 @@ export function transformDispositionsData(rawData: ApiResponse): DispositionData
       trialTypeBreakdown.jury = trialTypeTotals.jury > 0 ?
         specByCategory['jury_trial'][key] / trialTypeTotals.jury : 0;
     }
-    
-    if (specByCategory['no_trial'] && specByCategory['no_trial'][key]) {
-      trialTypeBreakdown.none = trialTypeTotals.none > 0 ?
-        specByCategory['no_trial'][key] / trialTypeTotals.none : 0;
-    }
-    
-    console.log(`  Final trial type breakdown (normalized by trial type):`, trialTypeBreakdown);
     
     // Add to our dispositions array
     dispositions.push({
@@ -210,19 +195,20 @@ export function transformSentencesData(rawData: ApiResponse): SentenceData[] {
   })
 }
 
-/**
- * Transforms raw bail data from the database into the format expected by the BailTab component.
- * 
- * @param rawData - The raw API response data
- * @returns An array of BailDecisionData objects
- */
+// File: src/utils/dataTransformers.ts
 export function transformBailData(rawData: ApiResponse): BailDecisionData[] {
   // Define bail decision types with their corresponding database fields
   const bailTypes = [
-    { type: 'Personal Recognizance', countField: 'free_bail', costField: null },
+    { type: 'Personal\nRecognizance', countField: 'free_bail', costField: null },
     { type: 'Cash Bail', countField: 'cost_bail', costField: 'total_bail_cost' },
     { type: 'Denied', countField: 'denied_bail', costField: null }
   ];
+
+  // Calculate total bail decisions for percentage calculation
+  let totalBailDecisions = 0;
+  rawData.specification.forEach(spec => {
+    totalBailDecisions += (spec.free_bail || 0) + (spec.cost_bail || 0) + (spec.denied_bail || 0);
+  });
 
   // Transform each bail type
   return bailTypes.map(({ type, countField, costField }) => {
@@ -231,20 +217,20 @@ export function transformBailData(rawData: ApiResponse): BailDecisionData[] {
     let totalCost = 0;
 
     rawData.specification.forEach(spec => {
-      // Add type assertions for dynamic property access
-      count += (spec[countField as keyof SpecificationData] as number) || 0;
-      
+      count += spec[countField] || 0;
       if (costField) {
-        totalCost += (spec[costField as keyof SpecificationData] as number) || 0;
+        totalCost += spec[costField] || 0;
       }
     });
 
-    // Calculate average cost
+    // Calculate percentage and average cost
+    const percentage = totalBailDecisions > 0 ? (count / totalBailDecisions) * 100 : 0;
     const averageCost = count > 0 && costField ? totalCost / count : 0;
 
     return {
       type,
       count,
+      percentage,
       averageCost
     };
   }).filter(item => item.count > 0); // Filter out types with zero count

@@ -8,6 +8,11 @@
  .chart-display-container {
   width: 70vw !important;
   height: 50vh;
+  transition: height 0.3s ease;
+  
+  &.expanded {
+    height: 80vh;
+  }
   
   /* Ensure the container properly holds the chart */
   display: flex;

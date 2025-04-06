@@ -19,14 +19,10 @@ export async function GET(request: NextRequest) {
       const courtId = parseInt(searchParams.get('courtId') || '0', 10);
       const judgeId = parseInt(searchParams.get('judgeId') || '0', 10);
       const chargeId = parseInt(searchParams.get('chargeId') || '0', 10);
-      const prosecutionId = parseInt(searchParams.get('prosecutionId') || '0', 10);
-      const chargeSeverity = parseInt(searchParams.get('chargeSeverity') || '0', 10);
 
       console.log('courtId:', courtId);
       console.log('judgeId:', judgeId);
       console.log('chargeId:', chargeId);
-      console.log('prosecutionId:', prosecutionId);
-      console.log('chargeSeverity:', chargeSeverity);
 
       let specificationQuery;
       let specParams;
@@ -50,14 +46,12 @@ export async function GET(request: NextRequest) {
         WHERE
           court_id = ? AND
           judge_id = ? AND
-          charge_id = 0 AND
-          charge_severity = ?
+          charge_id = 0
         `;
   
         specParams = [
           courtId,
-          judgeId,
-          chargeSeverity
+          judgeId
         ];
       }
 

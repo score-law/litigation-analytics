@@ -6,7 +6,7 @@
  * Motion outcomes (Granted/Denied) are always visible regardless of filter states.
  * Note: "Other" outcome category has been intentionally hidden from visualization.
  */
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Typography, Box } from '@mui/material';
 import { MotionData, ViewMode } from '@/types';
 import BarChartDisplay from '@/components/BarChartDisplay';
@@ -15,8 +15,21 @@ import BarChartDisplay from '@/components/BarChartDisplay';
 const OUTCOME_COLORS = {
   GRANTED: '#38A169', // Green
   DENIED: '#E53E3E',  // Red
-  // OTHER: '#4A5568'    // Gray - Intentionally hidden from visualization but preserved for future use
+  COMPARATIVE: "#72d99d", // Light Green for comparative
 };
+
+// Priority motions to show initially
+const PRIORITY_MOTIONS = [
+  'dismiss',
+  'suppress',
+  'discovery',
+  'bail',
+  'dangerousness',
+  'continue',
+  'funds',
+  'sequester'
+];
+
 
 interface MotionsTabProps {
   data: MotionData[];
@@ -25,6 +38,7 @@ interface MotionsTabProps {
 }
 
 const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Process data for the chart
   const motionsChartData = useMemo(() => {
@@ -32,7 +46,32 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
       return { labels: [], datasets: [] };
     }
     
-    const labels = data.map(item => item.type);
+    // Filter and order motions based on expansion state
+    let orderedData = [...data];
+    
+    // Sort motions: priority motions first, in the specified order, then others alphabetically
+    orderedData.sort((a, b) => {
+      const aIndex = PRIORITY_MOTIONS.indexOf(a.type);
+      const bIndex = PRIORITY_MOTIONS.indexOf(b.type);
+      
+      // If both are priority motions, sort by priority order
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+      // If only a is priority, it comes first
+      if (aIndex !== -1) return -1;
+      // If only b is priority, it comes first
+      if (bIndex !== -1) return 1;
+      // Otherwise sort alphabetically
+      return a.type.localeCompare(b.type);
+    });
+    
+    // If not expanded, only show priority motions
+    if (!isExpanded) {
+      orderedData = orderedData.filter(motion => PRIORITY_MOTIONS.includes(motion.type));
+    }
+    
+    const labels = orderedData.map(item => item.type);
     
     // Handle comparative view using the clearer structure
     if (viewMode === 'comparative') {
@@ -43,11 +82,11 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
           datasets: [
             {
               label: 'Granted Ratio',
-              data: data.map(item => {
+              data: orderedData.map(item => {
                 const ratio = item.comparativeRatios?.overall ?? item.status.granted;
                 return ratio === 0 ? null : ratio;
               }),
-              backgroundColor: OUTCOME_COLORS.GRANTED,
+              backgroundColor: OUTCOME_COLORS.COMPARATIVE,
             }
           ]
         };
@@ -59,11 +98,11 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
           datasets: [
             {
               label: 'Granted Ratio',
-              data: data.map(item => {
+              data: orderedData.map(item => {
                 const ratio = item.comparativeRatios?.prosecution ?? item.partyFiled.granted;
                 return ratio === 0 ? null : ratio;
               }),
-              backgroundColor: OUTCOME_COLORS.GRANTED,
+              backgroundColor: OUTCOME_COLORS.COMPARATIVE,
             }
           ]
         };
@@ -75,13 +114,13 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
           datasets: [
             {
               label: 'Granted Ratio',
-              data: data.map(item => {
+              data: orderedData.map(item => {
                 const ratio = item.comparativeRatios?.defense ?? 
                   // Fallback calculation if the new structure isn't available
                   (item.status.granted - item.partyFiled.granted);
                 return ratio === 0 ? null : ratio;
               }),
-              backgroundColor: OUTCOME_COLORS.GRANTED,
+              backgroundColor: OUTCOME_COLORS.COMPARATIVE,
             }
           ]
         };
@@ -96,12 +135,12 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
         datasets: [
           {
             label: 'Granted',
-            data: data.map(item => item.status.granted),
+            data: orderedData.map(item => item.status.granted),
             backgroundColor: OUTCOME_COLORS.GRANTED,
             stack: 'stack1',          },
           {
             label: 'Denied',
-            data: data.map(item => item.status.denied),
+            data: orderedData.map(item => item.status.denied),
             backgroundColor: OUTCOME_COLORS.DENIED,
             stack: 'stack1',          }
         ]
@@ -114,13 +153,13 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
         datasets: [
           {
             label: 'Granted',
-            data: data.map(item => item.partyFiled.granted),
+            data: orderedData.map(item => item.partyFiled.granted),
             backgroundColor: OUTCOME_COLORS.GRANTED,
             stack: 'stack1',
           },
           {
             label: 'Denied',
-            data: data.map(item => item.partyFiled.denied),
+            data: orderedData.map(item => item.partyFiled.denied),
             backgroundColor: OUTCOME_COLORS.DENIED,
             stack: 'stack1',
           }
@@ -134,13 +173,13 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
         datasets: [
           {
             label: 'Granted',
-            data: data.map(item => item.status.granted - item.partyFiled.granted),
+            data: orderedData.map(item => item.status.granted - item.partyFiled.granted),
             backgroundColor: OUTCOME_COLORS.GRANTED,
             stack: 'stack1',
           },
           {
             label: 'Denied',
-            data: data.map(item => item.status.denied - item.partyFiled.denied),
+            data: orderedData.map(item => item.status.denied - item.partyFiled.denied),
             backgroundColor: OUTCOME_COLORS.DENIED,
             stack: 'stack1',
           }
@@ -153,7 +192,7 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
       labels,
       datasets: []
     };
-  }, [data, viewMode, partyFilter]);
+  }, [data, viewMode, partyFilter, isExpanded]);
 
   // If no data, display a message
   if (!data || data.length === 0) {
@@ -164,6 +203,8 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
     );
   }
 
+  const hasMoreMotions = data.length > PRIORITY_MOTIONS.length;
+
   return (
     <div className="motions-container">
       <div className="chart-section">
@@ -171,6 +212,7 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
           chartData={motionsChartData} 
           xAxisLabel={viewMode === 'comparative' ? 'Ratio of Motions Granted Relative to Average' : 'Number of Motions'}
           viewMode={viewMode}
+          className={isExpanded ? 'expanded' : ''}
           margin={{ top: 30, bottom: 50, left: 120, right: 120 }}
           domainConfig={
             viewMode === 'objective' 
@@ -187,6 +229,16 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
                 }
           }
         />
+
+        {hasMoreMotions && (
+          <div className="load-more-button-container">
+            <button 
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              {isExpanded ? 'Show less' : 'Show more'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

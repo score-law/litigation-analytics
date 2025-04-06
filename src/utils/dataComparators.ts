@@ -14,143 +14,141 @@ import {
  * @returns Disposition data with comparative metrics
  */
 export function calculateComparativeDispositionsData(
-    data: DispositionData[], 
-    averageData: DispositionData[]
-  ): DispositionData[] {
-    if (!data || !averageData) {
-      return data || [];
+  data: DispositionData[], 
+  averageData: DispositionData[]
+): DispositionData[] {
+  if (!data || !averageData) {
+    return data || [];
+  }
+
+  // Create a map of average dispositions for easy lookup
+  const averageMap = new Map<string, DispositionData>();
+  averageData.forEach(item => {
+    averageMap.set(item.type, item);
+  });
+
+  // Calculate comparative metrics for each disposition
+  return data.map(item => {
+    const average = averageMap.get(item.type);
+    
+    if (!average) {
+      return item; // Return unchanged if no average found
     }
+
+    // Calculate comparative ratio - modified to handle zero/zero case
+    const comparativeRatio = (average.ratio > 0 && item.ratio > 0) 
+      ? item.ratio / average.ratio 
+      : 1;
+    
+    // Calculate comparative trial type breakdown - modified to handle zero/zero case
+    const comparativeTrialTypeBreakdown = {
+      bench: (average.trialTypeBreakdown.bench > 0 && item.trialTypeBreakdown.bench > 0) 
+        ? item.trialTypeBreakdown.bench / average.trialTypeBreakdown.bench
+        : 1,
+      jury: (average.trialTypeBreakdown.jury > 0 && item.trialTypeBreakdown.jury > 0) 
+        ? item.trialTypeBreakdown.jury / average.trialTypeBreakdown.jury 
+        : 1,
+      none: (average.trialTypeBreakdown.none > 0 && item.trialTypeBreakdown.none > 0) 
+        ? item.trialTypeBreakdown.none / average.trialTypeBreakdown.none 
+        : 1,
+    };
+
+    // Return the disposition with comparative metrics
+    return {
+      type: item.type,
+      ratio: comparativeRatio,
+      trialTypeBreakdown: comparativeTrialTypeBreakdown
+    };
+  });
+}
+
+/**
+ * Calculates comparative metrics for sentence data by comparing with averages.
+ * 
+ * @param data - The current sentence data
+ * @param averageData - The average sentence data
+ * @returns Sentence data with comparative metrics
+ */
+export function calculateComparativeSentencesData(
+  data: SentenceData[], 
+  averageData: SentenceData[]
+): SentenceData[] {
+  // Create a map of average data for quick lookup
+  const averageMap = new Map<string, SentenceData>();
+  averageData.forEach(item => {
+    averageMap.set(item.type, item);
+  });
+
+  // Calculate comparative metrics for each sentence type
+  return data.map(item => {
+    const average = averageMap.get(item.type);
+    
+    // If no matching average found, return original data
+    if (!average) {
+      return item;
+    }
+
+    // Calculate comparative metrics
+    const comparativePercentage = average.percentage > 0 && item.percentage > 0
+      ? item.percentage / average.percentage 
+      : 1;
+    
+    const comparativeAverageDays = average.averageDays > 0 && item.averageDays > 0
+      ? item.averageDays / average.averageDays 
+      : 1;
+    
+    const comparativeAverageCost = average.averageCost > 0 && item.averageCost > 0
+      ? item.averageCost / average.averageCost 
+      : 1;
+
+    // Return the comparative data
+    return {
+      type: item.type,
+      percentage: comparativePercentage,
+      averageDays: comparativeAverageDays,
+      averageCost: comparativeAverageCost
+    };
+  });
+}
   
-    // Create a map of average dispositions for easy lookup
-    const averageMap = new Map<string, DispositionData>();
-    averageData.forEach(item => {
-      averageMap.set(item.type, item);
-    });
-  
-    // Calculate comparative metrics for each disposition
-    return data.map(item => {
-      const average = averageMap.get(item.type);
-      
-      if (!average) {
-        return item; // Return unchanged if no average found
-      }
-  
-      // Calculate comparative ratio - modified to handle zero/zero case
-      const comparativeRatio = average.ratio > 0 
-        ? item.ratio / average.ratio 
-        : 1;
-      
-      // Calculate comparative trial type breakdown - modified to handle zero/zero case
-      const comparativeTrialTypeBreakdown = {
-        bench: average.trialTypeBreakdown.bench > 0 
-          ? item.trialTypeBreakdown.bench / average.trialTypeBreakdown.bench
-          : 1,
-        jury: average.trialTypeBreakdown.jury > 0 
-          ? item.trialTypeBreakdown.jury / average.trialTypeBreakdown.jury 
-          : 1,
-        none: average.trialTypeBreakdown.none > 0 
-          ? item.trialTypeBreakdown.none / average.trialTypeBreakdown.none 
-          : 1,
-      };
-  
-      // Return the disposition with comparative metrics
-      return {
-        type: item.type,
-        ratio: comparativeRatio,
-        trialTypeBreakdown: comparativeTrialTypeBreakdown
-      };
-    });
-  }
-  
-  /**
-   * Calculates comparative metrics for sentence data by comparing with averages.
-   * 
-   * @param data - The current sentence data
-   * @param averageData - The average sentence data
-   * @returns Sentence data with comparative metrics
-   */
-  export function calculateComparativeSentencesData(
-    data: SentenceData[], 
-    averageData: SentenceData[]
-  ): SentenceData[] {
-    // Create a map of average data for quick lookup
-    const averageMap = new Map<string, SentenceData>();
-    averageData.forEach(item => {
-      averageMap.set(item.type, item);
-    });
-  
-    // Calculate comparative metrics for each sentence type
-    return data.map(item => {
-      const average = averageMap.get(item.type);
-      
-      // If no matching average found, return original data
-      if (!average) {
-        return item;
-      }
-  
-      // Calculate comparative metrics
-      const comparativePercentage = average.percentage > 0 
-        ? item.percentage / average.percentage 
-        : 0;
-      
-      const comparativeAverageDays = average.averageDays > 0 
-        ? item.averageDays / average.averageDays 
-        : 0;
-      
-      const comparativeAverageCost = average.averageCost > 0 
-        ? item.averageCost / average.averageCost 
-        : 0;
-  
-      // Return the comparative data
-      return {
-        type: item.type,
-        percentage: comparativePercentage,
-        averageDays: comparativeAverageDays,
-        averageCost: comparativeAverageCost
-      };
-    });
-  }
-  
-  /**
-   * Calculates comparative metrics for bail decision data by comparing with averages.
-   * 
-   * @param data - The current bail decision data
-   * @param averageData - The average bail decision data
-   * @returns Bail decision data with comparative metrics
-   */
-  export function calculateComparativeBailData(
-    data: BailDecisionData[], 
-    averageData: BailDecisionData[]
-  ): BailDecisionData[] {
-    // Create a map of average data for quick lookup
-    const averageMap = new Map<string, BailDecisionData>();
-    averageData.forEach(item => {
-      averageMap.set(item.type, item);
-    });
-  
-    // Calculate comparative metrics for each bail decision type
-    return data.map(item => {
-      const average = averageMap.get(item.type);
-      
-      // If no matching average found, return original data
-      if (!average || average.count === 0) {
-        return item;
-      }
-  
-      // Calculate comparative metrics
-      const comparativeCount = item.count / average.count;
-      const comparativeAverageCost = average.averageCost > 0 
-        ? item.averageCost / average.averageCost 
-        : 0;
-  
-      // Return the comparative data
-      return {
-        type: item.type,
-        count: comparativeCount,
-        averageCost: comparativeAverageCost
-      };
-    });
-  }
+// File: src/utils/dataComparators.ts
+export function calculateComparativeBailData(
+  data: BailDecisionData[], 
+  averageData: BailDecisionData[]
+): BailDecisionData[] {
+  // Create a map of average data for quick lookup
+  const averageMap = new Map<string, BailDecisionData>();
+  averageData.forEach(item => {
+    averageMap.set(item.type, item);
+  });
+
+  // Calculate comparative metrics for each bail decision type
+  return data.map(item => {
+    const average = averageMap.get(item.type);
+    
+    // If no matching average found, return original data
+    if (!average || average.count === 0) {
+      return item;
+    }
+
+    // Calculate comparative metrics
+    const comparativeCount = item.count / average.count;
+    const comparativePercentage = average.percentage > 0 && item.percentage > 0
+      ? item.percentage / average.percentage 
+      : 1;
+    const comparativeAverageCost = average.averageCost > 0 && item.averageCost > 0
+      ? item.averageCost / average.averageCost 
+      : 1;
+
+    // Return the comparative data
+    return {
+      type: item.type,
+      count: comparativeCount,
+      percentage: comparativePercentage,
+      averageCost: comparativeAverageCost
+    };
+  });
+}
   
 /**
  * Calculates comparative metrics for motion data by comparing with averages.
@@ -186,8 +184,7 @@ export function calculateComparativeMotionsData(
     const avgRatio = avgTotal > 0 ? avgMotion.status.granted / avgTotal : 0;
     
     // Avoid division by zero
-    const overallComparativeRatio = avgRatio > 0 ? currentRatio / avgRatio : 
-                                  (currentRatio > 0 ? 2 : 1); // 2 = better than average, 1 = same as average
+    const overallComparativeRatio = avgRatio > 0 ? currentRatio / avgRatio : (currentRatio > 0 ? 2 : 1); // 2 = better than average, 1 = same as average
     
     // Calculate prosecution-specific comparative ratio
     const currentProsTotal = currentMotion.partyFiled.granted + currentMotion.partyFiled.denied;

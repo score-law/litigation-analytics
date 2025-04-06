@@ -41,6 +41,7 @@ export interface SentenceData {
 export interface BailDecisionData {
   type: string;
   count: number;
+  percentage: number; // Add this field
   averageCost: number;
 }
 
@@ -63,6 +64,9 @@ export interface MotionData {
     defense: number;
   };
 }
+
+// Possible charge groupings
+export type chargeGroup = 'charge' | 'chapter' | 'title'
 
 // View mode type for toggling between objective and comparative views
 export type ViewMode = 'objective' | 'comparative';
@@ -88,16 +92,17 @@ export interface SpecificationData extends RowDataPacket {
   charge_id: number;
   court_id: number;
   charge_severity: number;
-  trial_category: 'no_trial' | 'jury_trial' | 'bench_trial' | 'any';
+  trial_category: 'jury_trial' | 'bench_trial' | 'any';
   
   // Bail-related fields
+  total_bail_decisions: number;
   free_bail: number;
   cost_bail: number;
   total_bail_cost: number;
   denied_bail: number;
   
   // Case count fields
-  total_cases: number;
+  total_case_dispositions: number;
   
   // Disposition-related fields
   aquittals: number;

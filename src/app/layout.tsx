@@ -17,7 +17,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Score",
-  description: "Get detailed information on lawyers and law firms in your area.",
+  description: "Litigation Analytics for Criminal Defense",
 };
 
 export default function RootLayout({

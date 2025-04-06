@@ -12,8 +12,9 @@ import BarChartDisplay from '@/components/BarChartDisplay';
 
 // Consistent colors for sentence types
 const SENTENCE_TYPE_COLORS = {
-  DOLLARS: '#38A169', // Green
-  DAYS: '#3182CE',    // Blue
+  FREQUENCY: '#34dea9',    // Blue (lighter)
+  DOLLARS: '#a0ef86', // Green
+  DAYS: '#00c7c7', // Blue (darker)
 };
 
 interface SentencesTabProps {
@@ -42,8 +43,8 @@ const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
           {
             data: chartValues,
             label: chartLabel,
-            color: SENTENCE_TYPE_COLORS.DAYS,
-            backgroundColor: SENTENCE_TYPE_COLORS.DAYS,
+            color: SENTENCE_TYPE_COLORS.FREQUENCY,
+            backgroundColor: SENTENCE_TYPE_COLORS.FREQUENCY,
             valueFormatter: (value: number | null) => {
               if (value === null) return '';
               

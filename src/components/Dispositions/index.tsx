@@ -23,10 +23,6 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
     }
   };
 
-  console.log('DispositionsTab data:', data);
-  console.log('viewMode:', viewMode);
-  console.log('trialTypeFilter:', trialTypeFilter);
-
   // Process data for the chart
   const breakdownChartData = useMemo(() => {
     if (!data || data.length === 0) {
@@ -35,7 +31,6 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
 
     // Create labels from disposition types
     const labels = data.map(item => item.type);
-    console.log('Chart labels:', labels);
     
     let datasets = [];
     
@@ -51,21 +46,20 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
       ];
     } else {
       // Filter to specific trial type
-      let trialTypeKey: 'bench' | 'jury' | 'none' = 'none';
-      let color = '#E53E3E'; // Default red for 'none'
+      let trialTypeKey: 'bench' | 'jury';
+      let color = '#e052b9';
       
       if (trialTypeFilter === 'bench') {
         trialTypeKey = 'bench';
-        color = '#3182CE'; // Blue
+        color = '#ff6491'; // Orange
       } else if (trialTypeFilter === 'jury') {
         trialTypeKey = 'jury';
-        color = '#38A169'; // Green
+        color = '#e052b9'; // pink
       }
       
       datasets = [
         {
-          label: trialTypeFilter === 'bench' ? 'Bench Trial' : 
-                 trialTypeFilter === 'jury' ? 'Jury Trial' : 'No Trial',
+          label: trialTypeFilter === 'bench' ? 'Bench Trial' : 'Jury Trial',
           data: viewMode === 'objective' ? data.map(item => item.trialTypeBreakdown[trialTypeKey] * 100) : data.map(item => item.trialTypeBreakdown[trialTypeKey]),
           backgroundColor: color,
           valueFormatter: (value: number | null) => valueFormatter(value, trialTypeKey)

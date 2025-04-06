@@ -5,7 +5,7 @@
  * for courts, judges, charges, and other entities.
  */
 
-import { courts, judges } from '@/data';
+import { courts } from '@/data';
 import { Charge } from '@/types';
 
 /**
@@ -23,11 +23,32 @@ export function getCourtName(courtId: number): string {
  * Gets the judge name for a given judge ID
  *
  * @param judgeId - The ID of the judge
- * @returns The name of the judge, or "Unknown Judge" if not found
+ * @returns The name of the judge, or a placeholder until the data is loaded
  */
 export function getJudgeName(judgeId: number): string {
-  const judge = judges.find((j) => j.id === judgeId);
-  return judge ? judge.name : 'Unknown Judge';
+  if (judgeId === 0) return 'Any Judge';
+  
+  // For non-zero IDs, trigger a fetch in the background
+  // and return a placeholder immediately
+  const placeholderName = `Judge #${judgeId}`;
+  
+  // Fetch the judge data asynchronously and update the DOM when it's ready
+  fetch(`/api/judges?judgeId=${judgeId}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data && data.name) {
+        // Find all elements with the placeholder and update them
+        const elements = document.querySelectorAll(`[data-judge-id="${judgeId}"]`);
+        elements.forEach(el => {
+          el.textContent = data.name;
+        });
+      }
+    })
+    .catch(error => {
+      console.error(`Error fetching judge #${judgeId}:`, error);
+    });
+  
+  return placeholderName;
 }
 
 /**

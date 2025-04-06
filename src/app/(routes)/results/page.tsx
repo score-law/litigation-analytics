@@ -10,17 +10,20 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+
 import { Box, Tab, Tabs, Typography, Paper, CircularProgress, Accordion, AccordionSummary, AccordionDetails, TextField, Chip, IconButton } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { TabContext, TabPanel } from '@mui/lab';
-import { calculateComparativeDispositionsData, calculateComparativeSentencesData, 
-calculateComparativeBailData, calculateComparativeMotionsData } from '@/utils/dataComparators';
-import { courts, judges } from '@/data';
-import { transformApiResponseToSearchResultData } from '@/utils/dataTransformers';
+
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import CloseIcon from '@mui/icons-material/Close';
-import { SearchResultData, ViewMode } from '@/types';
+
+import { courts } from '@/data';
+import { SearchResultData, ViewMode, chargeGroup } from '@/types';
+
+import { calculateComparativeDispositionsData, calculateComparativeSentencesData, calculateComparativeBailData, calculateComparativeMotionsData } from '@/utils/dataComparators';
+import { transformApiResponseToSearchResultData } from '@/utils/dataTransformers';
+
 import DispositionsTab from '@/components/Dispositions';
 import SentencesTab from '@/components/Sentences';
 import BailTab from '@/components/Bail';
@@ -28,6 +31,7 @@ import MotionsTab from '@/components/Motions';
 import ViewModeToggle from '@/components/ViewModeToggle';
 import CategoryFilter from '@/components/CategoryFilter';
 import SelectionList from '@/components/SelectionList';
+
 import './styles.scss';
 
 // Custom expand icon component that switches between plus and minus
@@ -57,9 +61,13 @@ const ResultsPage = () => {
   const [selectedChargeId, setSelectedChargeId] = useState<number>(
     parseInt(searchParams.get('chargeId') || '0')
   );
+
+  const [chargeGroup, setChargeGroup] = useState<chargeGroup>('charge');
   
   // tracking charge name
   const [chargeName, setChargeName] = useState<string>('');
+
+  const [judgeName, setJudgeName] = useState<string>('');
   
   // State to track the parameters used in the final query
   const [finalParams, setFinalParams] = useState<{
@@ -77,6 +85,7 @@ const ResultsPage = () => {
   // Update category filter states (from boolean toggles to string selectors)
   const [dispositionsTrialType, setDispositionsTrialType] = useState<string>("all");
   const [sentenceDisplayMode, setSentenceDisplayMode] = useState<string>("frequency");
+  const [bailDisplayMode, setBailDisplayMode] = useState<string>("frequency");
   const [motionsPartyType, setMotionsPartyType] = useState<string>("all");
   
   // State for accordion expansion
@@ -88,10 +97,14 @@ const ResultsPage = () => {
   const [courtSearchTerm, setCourtSearchTerm] = useState('');
   const [judgeSearchTerm, setJudgeSearchTerm] = useState('');
   const [chargeSearchTerm, setChargeSearchTerm] = useState('');
+
   // Added debounced charge search term state
   const [debouncedChargeSearchTerm, setDebouncedChargeSearchTerm] = useState('');
   // Added typing state for loading indicator
   const [isTypingCharge, setIsTypingCharge] = useState(false);
+
+  const [debouncedJudgeSearchTerm, setDebouncedJudgeSearchTerm] = useState('');
+  const [isTypingJudge, setIsTypingJudge] = useState(false);
 
   // New state for selection lists
   const [visibleCourts, setVisibleCourts] = useState<Array<{ id: number; name: string }>>([]);
@@ -107,8 +120,17 @@ const ResultsPage = () => {
   const [hasMoreCharges, setHasMoreCharges] = useState<boolean>(true);
   
   // Targeted data fetching function with minimal state updates
-  const fetchFilteredData = useCallback(async (court: number, judge: number, charge: number) => {
+  const fetchFilteredData = useCallback(async (court: number, judge: number, charge: number, charge_group: chargeGroup) => {
     try {
+      // Section charges into proper group
+      if (charge != 0) {
+        if (charge_group === 'charge') {
+          charge = (charge + 2000)
+        } else if (charge_group === 'chapter') {
+          charge = (charge + 1000)
+        }
+      }
+
       const params = new URLSearchParams();
       params.set('courtId', court.toString());
       params.set('judgeId', judge.toString());
@@ -125,7 +147,7 @@ const ResultsPage = () => {
       if (responseData.specification && responseData.specification.length > 0) {
         for (const spec of responseData.specification) {
           if (spec.trial_category == 'any') {
-            setTotalCases(spec.total_cases);
+            setTotalCases(spec.total_case_dispositions);
             break;
           }
         }
@@ -191,13 +213,13 @@ const ResultsPage = () => {
     
     const newUrl = `${window.location.pathname}?${newParams.toString()}`;
     window.history.replaceState({}, '', newUrl);
-  }, [selectedCourtId, selectedJudgeId, selectedChargeId]);
+  }, [selectedCourtId, selectedJudgeId, selectedChargeId, chargeGroup]);
 
   // Sync URL with state whenever selection changes
   useEffect(() => {
-    fetchFilteredData(selectedCourtId, selectedJudgeId, selectedChargeId);
+    fetchFilteredData(selectedCourtId, selectedJudgeId, selectedChargeId, chargeGroup);
     syncUrlWithState();
-  }, [selectedCourtId, selectedJudgeId, selectedChargeId, syncUrlWithState]);
+  }, [selectedCourtId, selectedJudgeId, selectedChargeId, chargeGroup, syncUrlWithState]);
   
   // Debounce effect for charge search
   useEffect(() => {
@@ -210,19 +232,24 @@ const ResultsPage = () => {
       clearTimeout(timer);
     };
   }, [chargeSearchTerm]);
+
+  // Add debounce effect for judge search (similar to charge search)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedJudgeSearchTerm(judgeSearchTerm);
+      setIsTypingJudge(false);
+    }, 500); // 500ms debounce delay
+    
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [judgeSearchTerm]);
   
   // Initialize court options with real data
   useEffect(() => {
     // Load first 20 courts
     setVisibleCourts(courts.slice(0, 20));
     setHasMoreCourts(courts.length > 20);
-  }, []);
-
-  // Initialize judges options with real data
-  useEffect(() => {
-    // Load first 20 judges
-    setVisibleJudges(judges.slice(0, 20));
-    setHasMoreJudges(judges.length > 20);
   }, []);
 
   // Updated to use debouncedChargeSearchTerm instead of chargeSearchTerm
@@ -252,6 +279,33 @@ const ResultsPage = () => {
     fetchInitialCharges();
   }, [debouncedChargeSearchTerm]); // Changed dependency from chargeSearchTerm to debouncedChargeSearchTerm
 
+  // Update the useEffect for initial judge loading to use the API
+  useEffect(() => {
+    const fetchInitialJudges = async () => {
+      setLoadingJudges(true);
+      try {
+        // API call to get first 20 judges
+        const response = await fetch(
+          `/api/judges?limit=20&offset=0${debouncedJudgeSearchTerm ? `&search=${encodeURIComponent(debouncedJudgeSearchTerm)}` : ''}`
+        );
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch judges: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setVisibleJudges(data.judges);
+        setHasMoreJudges(data.total > data.judges.length);
+      } catch (error) {
+        console.error("Failed to fetch judges:", error);
+      } finally {
+        setLoadingJudges(false);
+      }
+    };
+    
+    fetchInitialJudges();
+  }, [debouncedJudgeSearchTerm]);
+
   // Handler for loading more courts with real pagination
   const loadMoreCourts = () => {
     setLoadingCourts(true);
@@ -268,18 +322,27 @@ const ResultsPage = () => {
   };
 
   // Handler for loading more judges with real pagination
-  const loadMoreJudges = () => {
+  const loadMoreJudges = async () => {
     setLoadingJudges(true);
     
-    // Short timeout to prevent UI freezing
-    setTimeout(() => {
+    try {
       const currentLength = visibleJudges.length;
-      const nextItems = judges.slice(currentLength, currentLength + 20);
+      const response = await fetch(
+        `/api/judges?limit=20&offset=${currentLength}${debouncedJudgeSearchTerm ? `&search=${encodeURIComponent(debouncedJudgeSearchTerm)}` : ''}`
+      );
       
-      setVisibleJudges(prev => [...prev, ...nextItems]);
-      setHasMoreJudges(currentLength + nextItems.length < judges.length);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch more judges: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setVisibleJudges(prev => [...prev, ...data.judges]);
+      setHasMoreJudges(currentLength + data.judges.length < data.total);
+    } catch (error) {
+      console.error("Failed to fetch more judges:", error);
+    } finally {
       setLoadingJudges(false);
-    }, 100);
+    }
   };
 
   // Handler for loading more charges with API pagination
@@ -310,11 +373,16 @@ const ResultsPage = () => {
   const TRIAL_TYPE_OPTIONS = [
     { value: "all", label: "All Trials" },
     { value: "jury", label: "Jury Trial" },
-    { value: "bench", label: "Bench Trial" },
-    { value: "none", label: "No Trial" }
+    { value: "bench", label: "Bench Trial" }
   ];
 
   const SENTENCE_DISPLAY_OPTIONS = [
+    { value: "frequency", label: "Frequency" },
+    { value: "severity", label: "Severity" }
+  ];
+
+  // Add BAIL_DISPLAY_OPTIONS constant
+  const BAIL_DISPLAY_OPTIONS = [
     { value: "frequency", label: "Frequency" },
     { value: "severity", label: "Severity" }
   ];
@@ -329,6 +397,11 @@ const ResultsPage = () => {
   const handleChargeSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setChargeSearchTerm(e.target.value);
     setIsTypingCharge(true);
+  };
+
+  const handleJudgeSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setJudgeSearchTerm(e.target.value);
+    setIsTypingJudge(true);
   };
 
   // Handler functions for accordion toggling
@@ -357,6 +430,10 @@ const ResultsPage = () => {
     setSentencesViewMode(newMode);
   };
   
+  const handleBailDisplayModeChange = (value: string) => {
+    setBailDisplayMode(value);
+  };
+
   const handleBailViewModeChange = (newMode: ViewMode) => {
     setBailViewMode(newMode);
   };
@@ -457,7 +534,34 @@ const ResultsPage = () => {
       
       fetchChargeName();
     }
-  }, [selectedChargeId, visibleCharges]);
+  }, [selectedChargeId, visibleCharges])
+
+  useEffect(() => {
+    if (selectedJudgeId === 0) {
+      setJudgeName('');
+      return;
+    }
+    
+    const selectedJudge = visibleJudges.find(judge => judge.id === selectedJudgeId);
+    if (selectedJudge) {
+      setJudgeName(selectedJudge.name);
+    } else {
+      // If not found in the visible judges, fetch it
+      const fetchJudgeName = async () => {
+        try {
+          const response = await fetch(`/api/judges?judgeId=${selectedJudgeId}`);
+          if (response.ok) {
+            const data = await response.json();
+            setJudgeName(data.name);
+          }
+        } catch (error) {
+          console.error("Error fetching judge name:", error);
+        }
+      };
+      
+      fetchJudgeName();
+    }
+  }, [selectedJudgeId, visibleJudges]);
 
   return (
     <div className="results-page-container">
@@ -625,7 +729,7 @@ const ResultsPage = () => {
                     onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
                   >
                     <Typography variant="body2">
-                      {judges.find(j => j.id === selectedJudgeId)?.name || 'Selected Judge'}
+                      {judgeName || 'Selected Judge'}
                     </Typography>
                     <IconButton 
                       className='delete-icon'
@@ -649,7 +753,10 @@ const ResultsPage = () => {
                       fullWidth
                       size="small"
                       value={judgeSearchTerm}
-                      onChange={(e) => setJudgeSearchTerm(e.target.value)}
+                      onChange={handleJudgeSearch}
+                      InputProps={{
+                        endAdornment: isTypingJudge ? <CircularProgress size={20} /> : null
+                      }}
                       sx={{
                         mt: 0,
                         mb: 0,
@@ -803,11 +910,11 @@ const ResultsPage = () => {
                     value="sentences"
                     className="results-tab"
                   />
-                  {/*<Tab 
+                  <Tab 
                     label="Bail Decisions" 
                     value="bail"
                     className="results-tab"
-                  />*/}
+                  />
                   <Tab 
                     label="Motions" 
                     value="motions"
@@ -870,21 +977,30 @@ const ResultsPage = () => {
               
               <TabPanel value="bail" className="results-tab-panel">
                 {data && (
-                  <Paper className="graph-card" elevation={2}>
-                    <div className="interaction-section">
-                      <ViewModeToggle
-                        viewMode={bailViewMode}
-                        onChange={handleBailViewModeChange}
-                      />
-                    </div>
-                    <div className="graph-section">
-                      <BailTab 
-                        data={getDataForViewMode('bail', bailViewMode)}
-                        viewMode={bailViewMode}
-                      />
-                    </div>
-                  </Paper>
-                )}
+                    <Paper className="graph-card" elevation={2}>
+                      <div className="results-header">
+                        <div className="interaction-section">
+                          <ViewModeToggle 
+                            viewMode={bailViewMode} 
+                            onChange={handleBailViewModeChange} 
+                          />
+                          <CategoryFilter
+                            value={bailDisplayMode}
+                            onChange={handleBailDisplayModeChange}
+                            label="Display"
+                            options={BAIL_DISPLAY_OPTIONS}
+                          />
+                        </div>
+                      </div>
+                      <div className="graph-section">
+                        <BailTab 
+                          data={getDataForViewMode('bail', bailViewMode)} 
+                          viewMode={bailViewMode}
+                          displayMode={bailDisplayMode}
+                        />
+                      </div>
+                    </Paper>
+                  )}
               </TabPanel>
               
               <TabPanel value="motions" className="results-tab-panel">
