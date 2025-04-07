@@ -118,6 +118,11 @@ export function transformDispositionsData(rawData: ApiResponse): DispositionData
  * @returns An array of SentenceData objects
  */
 export function transformSentencesData(rawData: ApiResponse): SentenceData[] {
+  if (!rawData || !rawData.specification || rawData.specification.length === 0) {
+    console.warn('No specification data available for sentences transformation');
+    return [];
+  }
+
   // Define sentence types with their corresponding database fields
   const sentenceTypes = [
     { 
@@ -184,6 +189,11 @@ export function transformSentencesData(rawData: ApiResponse): SentenceData[] {
 
 // File: src/utils/dataTransformers.ts
 export function transformBailData(rawData: ApiResponse): BailDecisionData[] {
+  if (!rawData || !rawData.specification || rawData.specification.length === 0) {
+    console.warn('No bail data available for sentences transformation');
+    return [];
+  }
+
   // Define bail decision types with their corresponding database fields
   const bailTypes = [
     { type: 'Personal\nRecognizance', countField: 'free_bail', costField: null },
@@ -231,6 +241,7 @@ export function transformBailData(rawData: ApiResponse): BailDecisionData[] {
  */
 export function transformMotionsData(rawData: ApiResponse): MotionData[] {
   if (!rawData || !rawData.motion_data || rawData.motion_data.length === 0) {
+    console.warn('No motion data available for motions transformation');
     return [];
   }
   
@@ -295,6 +306,17 @@ export function transformMotionsData(rawData: ApiResponse): MotionData[] {
  * @returns A SearchResultData object containing all transformed data
  */
 export function transformApiResponseToSearchResultData(rawData: ApiResponse): SearchResultData {
+  // Validate the raw data at the highest level
+  if (!rawData || !rawData.specification || rawData.specification.length === 0) {
+    console.warn('Empty or invalid API response data');
+    return {
+      dispositions: [],
+      sentences: [],
+      bailDecisions: [],
+      motions: []
+    };
+  }
+
   return {
     dispositions: transformDispositionsData(rawData),
     sentences: transformSentencesData(rawData),
