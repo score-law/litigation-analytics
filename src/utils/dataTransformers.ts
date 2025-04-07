@@ -77,50 +77,38 @@ export function transformDispositionsData(rawData: ApiResponse): DispositionData
     { key: 'guilty', label: 'Guilty' },
   ];
   
-  // Initialize disposition data array
-  const dispositions: DispositionData[] = [];
-  
   // Process each disposition type
-  dispositionTypes.forEach(({ key, label }) => {
-    // Skip if this disposition type doesn't exist in our base spec
-    if (!(key in baseSpec)) {
-      console.warn(`Disposition key "${key}" not found in specification data`);
-      return;
-    }
+  return dispositionTypes.map(({ key, label }) => {
+    // Get total count for this disposition type
+    const count = baseSpec[key] || 0;
     
-    // Calculate the overall ratio of this disposition type
-    const ratio = baseSpec[key] / totalCharges;
+    // Calculate ratio of this disposition type to total
+    const ratio = totalCharges > 0 ? count / totalCharges : 0;
     
-    // Initialize trial type breakdown with zeros
+    // Calculate trial type counts and ratios
+    const trialTypeCounts = {
+      bench: specByCategory['bench_trial']?.[key] || 0,
+      jury: specByCategory['jury_trial']?.[key] || 0,
+      none: count - (specByCategory['bench_trial']?.[key] || 0) - (specByCategory['jury_trial']?.[key] || 0)
+    };
+
+    // Calculate trial type ratios
     const trialTypeBreakdown = {
-      bench: 0,
-      jury: 0,
-      none: 0
+      bench: trialTypeTotals.bench > 0 ? trialTypeCounts.bench / trialTypeTotals.bench : 0,
+      jury: trialTypeTotals.jury > 0 ? trialTypeCounts.jury / trialTypeTotals.jury : 0,
+      none: totalCharges - trialTypeTotals.bench - trialTypeTotals.jury > 0 
+        ? trialTypeCounts.none / (totalCharges - trialTypeTotals.bench - trialTypeTotals.jury) 
+        : 0
     };
     
-    // Calculate the trial type breakdown
-    if (specByCategory['bench_trial'] && specByCategory['bench_trial'][key]) {
-      trialTypeBreakdown.bench = trialTypeTotals.bench > 0 ?
-        specByCategory['bench_trial'][key] / trialTypeTotals.bench : 0;
-    }
-    
-    if (specByCategory['jury_trial'] && specByCategory['jury_trial'][key]) {
-      trialTypeBreakdown.jury = trialTypeTotals.jury > 0 ?
-        specByCategory['jury_trial'][key] / trialTypeTotals.jury : 0;
-    }
-    
-    // Add to our dispositions array
-    dispositions.push({
+    return {
       type: label,
       ratio,
-      trialTypeBreakdown
-    });
+      count, // Add the total count
+      trialTypeBreakdown,
+      trialTypeCounts // Add the trial type counts
+    };
   });
-  
-  console.log(`Generated ${dispositions.length} disposition entries`);
-  
-  // Sort by ratio in descending order
-  return dispositions;
 }
 
 /**
@@ -162,37 +150,36 @@ export function transformSentencesData(rawData: ApiResponse): SentenceData[] {
   const totalChargesDisposed = rawData.specification.reduce((sum, spec) => sum + spec.total_charges_disposed, 0);
 
   // Transform each sentence type
-  return sentenceTypes.map(({ type, countField, totalField, daysField }) => {
-    // Calculate total count, fees, and days
-    let count = 0;
-    let totalFees = 0;
-    let totalDays = 0;
-
-    rawData.specification.forEach(spec => {
-      // Add type assertions for dynamic property access
-      count += (spec[countField as keyof SpecificationData] as number) || 0;
-      
-      if (totalField) {
-        totalFees += (spec[totalField as keyof SpecificationData] as number) || 0;
-      }
-      
-      if (daysField) {
-        totalDays += (spec[daysField as keyof SpecificationData] as number) || 0;
-      }
-    });
-
-    // Calculate percentage, average days, and average cost
+  return sentenceTypes.map(sentenceType => {
+    // Get the specification with all data
+    const spec = rawData.specification.find(s => s.trial_category === 'any') || rawData.specification[0];
+    
+    // Get the count for this sentence type
+    const count = spec[sentenceType.countField] || 0;
+    
+    // Calculate percentage
     const percentage = totalChargesDisposed > 0 ? (count / totalChargesDisposed) * 100 : 0;
-    const averageDays = count > 0 && daysField ? totalDays / count : 0;
-    const averageCost = count > 0 && totalField ? totalFees / count : 0;
-
+    
+    // Calculate average days or cost
+    let averageDays = 0;
+    let averageCost = 0;
+    
+    if (sentenceType.daysField && count > 0) {
+      averageDays = spec[sentenceType.daysField] / count;
+    }
+    
+    if (sentenceType.totalField && count > 0) {
+      averageCost = spec[sentenceType.totalField] / count;
+    }
+    
     return {
-      type,
+      type: sentenceType.type,
       percentage,
       averageDays,
-      averageCost
+      averageCost,
+      count // Include the count in the returned object
     };
-  })
+  });
 }
 
 // File: src/utils/dataTransformers.ts

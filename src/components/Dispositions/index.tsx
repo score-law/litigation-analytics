@@ -11,15 +11,59 @@ interface DispositionsTabProps {
 
 const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabProps) => {
 
-  // Create value formatter based on view mode
-  const valueFormatter = (value: number | null, trialType?: string) => {
+  // Create a unified value formatter that handles both modes
+  const valueFormatter = (value: number | null) => {
     if (value === null) return '';
+    
+    // Find the disposition item that matches this value
+    // In BarChartDisplay, comparative values are transformed to (val - 1) * 100
+    // We need to account for this transformation when matching
+    const item = data.find(d => {
+      if (trialTypeFilter === "all") {
+        if (viewMode === 'objective') {
+          // In objective mode, values are displayed as percentages (0-100)
+          return Math.abs(d.ratio * 100 - value) < 0.01;
+        } else {
+          // In comparative mode, values are transformed to (val - 1) * 100
+          // So we need to transform back: value/100 + 1
+          const originalValue = value / 100 + 1;
+          return Math.abs(d.ratio - originalValue) < 0.01;
+        }
+      } else {
+        const key = trialTypeFilter === 'bench' ? 'bench' : 'jury';
+        if (viewMode === 'objective') {
+          return Math.abs(d.trialTypeBreakdown[key] * 100 - value) < 0.01;
+        } else {
+          // Transform back for comparative mode
+          const originalValue = value / 100 + 1;
+          return Math.abs(d.trialTypeBreakdown[key] - originalValue) < 0.01;
+        }
+      }
+    });
+    
+    if (!item) return '';
+    
+    // Get the appropriate count based on trial type filter
+    let count = item.count || 0;
+    if (trialTypeFilter !== "all" && item.trialTypeCounts) {
+      const key = trialTypeFilter === 'bench' ? 'bench' : 'jury';
+      count = item.trialTypeCounts[key] || 0;
+    }
+    
     if (viewMode === 'comparative') {
-      return value > 1
-        ? `${Math.abs((value - 1)).toFixed(0)}% above average`
-        : `${Math.abs((value - 1)).toFixed(0)}% below average`;
+      // In BarChartDisplay comparative mode:
+      // - value > 0 means above average
+      // - value < 0 means below average
+      // - value is already transformed to percentage difference
+      if (value === 0) {
+        return `Same as average | ${count.toLocaleString()} total charges`;
+      } else if (value > 0) {
+        return `${Math.abs(value).toFixed(0)}% above average | ${count.toLocaleString()} total charges`;
+      } else {
+        return `${Math.abs(value).toFixed(0)}% below average | ${count.toLocaleString()} total charges`;
+      }
     } else {
-      return `${(value).toFixed(0)}% of dispositions`;
+      return `${value.toFixed(0)}% of dispositions | ${count.toLocaleString()} total charges`;
     }
   };
 
@@ -38,10 +82,10 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
       // Show total ratios without breaking down by trial type
       datasets = [
         {
-          label: 'Total',
+          label: '',
           data: viewMode === 'objective' ? data.map(item => item.ratio * 100) : data.map(item => item.ratio),
           backgroundColor: '#805AD5', // Purple for total values
-          valueFormatter: (value: number | null) => valueFormatter(value)
+          valueFormatter // Pass the valueFormatter directly
         }
       ];
     } else {
@@ -59,10 +103,12 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
       
       datasets = [
         {
-          label: trialTypeFilter === 'bench' ? 'Bench Trial' : 'Jury Trial',
-          data: viewMode === 'objective' ? data.map(item => item.trialTypeBreakdown[trialTypeKey] * 100) : data.map(item => item.trialTypeBreakdown[trialTypeKey]),
+          label: '',
+          data: viewMode === 'objective' ? 
+                data.map(item => item.trialTypeBreakdown[trialTypeKey] * 100) : 
+                data.map(item => item.trialTypeBreakdown[trialTypeKey]),
           backgroundColor: color,
-          valueFormatter: (value: number | null) => valueFormatter(value, trialTypeKey)
+          valueFormatter // Pass the valueFormatter directly
         }
       ];
     }

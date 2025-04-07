@@ -22,7 +22,13 @@ export interface Charge {
 export interface DispositionData {
   type: string;
   ratio: number;
+  count?: number; // Total count across all trial types
   trialTypeBreakdown: {
+    bench: number;
+    jury: number;
+    none: number;
+  };
+  trialTypeCounts?: {
     bench: number;
     jury: number;
     none: number;
@@ -35,6 +41,7 @@ export interface SentenceData {
   percentage: number;
   averageDays: number;
   averageCost: number;
+  count: number;
 }
 
 // Data types for bail decisions tab

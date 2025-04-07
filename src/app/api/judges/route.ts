@@ -108,7 +108,7 @@ async function getPaginatedJudges(limitParam: string | null, offsetParam: string
         `SELECT judge_id as id, CONCAT_WS(' ', first, middle, last) as name 
          FROM judges 
          WHERE first LIKE ? OR middle LIKE ? OR last LIKE ? 
-         ORDER BY last, first 
+         ORDER BY total_cases DESC 
          LIMIT ${limit} OFFSET ${offset}`,
         [searchTerm, searchTerm, searchTerm]
       );
@@ -120,7 +120,7 @@ async function getPaginatedJudges(limitParam: string | null, offsetParam: string
       judges = await query<any[]>(
         `SELECT judge_id as id, CONCAT_WS(' ', first, middle, last) as name 
          FROM judges 
-         ORDER BY last, first 
+         ORDER BY total_cases DESC 
          LIMIT ${limit} OFFSET ${offset}`
       );
     }
@@ -144,7 +144,7 @@ async function getPaginatedJudges(limitParam: string | null, offsetParam: string
 async function getAllJudges() {
   try {
     const results = await query<any[]>(
-      'SELECT judge_id as id, CONCAT_WS(" ", first, middle, last) as name FROM judges ORDER BY last, first'
+      'SELECT judge_id as id, CONCAT_WS(" ", first, middle, last) as name FROM judges ORDER BY total_cases DESC'
     );
     
     return NextResponse.json(results);

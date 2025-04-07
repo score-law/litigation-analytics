@@ -60,7 +60,7 @@ interface BarChartDisplayProps {
       data: (number | null)[];      
       label: string;
       color?: string;
-      backgroundColor?: string; // Added backgroundColor property
+      backgroundColor?: string;      
       stack?: string;
       valueFormatter?: (value: number | null) => string;
       highlightScope?: { highlighted: string; faded: string };
@@ -72,25 +72,8 @@ interface BarChartDisplayProps {
   margin?: { top: number; bottom: number; left: number; right: number };
   className?: string;
   domainConfig?: DomainConfig;
-  preserveStackInComparative?: boolean; // New prop for controlling stack behavior in comparative mode
+  preserveStackInComparative?: boolean; 
 }
-
-// Create a custom value formatter for comparative mode
-const createComparativeFormatter = () => {
-  return (transformedValue: number | null) => {
-    if (transformedValue === null || transformedValue === undefined) return '';
-
-    // No need to recalculate - the transformed value is already the percentage difference
-    // transformedValue is now directly the percentage above/below average
-    const percent = Math.abs(transformedValue).toFixed(0);
-    const direction = transformedValue >= 0 ? 'above' : 'below';
-
-    if (Math.abs(transformedValue) < 1) {
-      return 'Average';
-    }
-    return `${percent}% ${direction} average`;
-  };
-};
 
 /**
  * Calculates domain min/max values based on dynamic configuration with exponential distribution
@@ -140,7 +123,7 @@ const BarChartDisplay = ({
   margin = { top: 30, bottom: 50, left: 120, right: 50 },
   className = '',
   domainConfig = { type: 'auto' },
-  preserveStackInComparative = false, // Default to false for backward compatibility
+  preserveStackInComparative = false,
 }: BarChartDisplayProps) => {
   // Reference for animation - moved before conditional return
   const chartRef = useRef<HTMLDivElement>(null);
@@ -185,14 +168,11 @@ const BarChartDisplay = ({
     const color = dataset.backgroundColor || dataset.color || CHART_COLORS[index % CHART_COLORS.length];
     
     // Adjust the valueFormatter based on viewMode to retain above/below identification
-    let valueFormatter = dataset.valueFormatter;
-    if (viewMode === 'comparative') {
-      valueFormatter = createComparativeFormatter();
-    }
-
+    const valueFormatter = dataset.valueFormatter;
+    
     return {
       data: transformedData,
-      label: dataset.label || `Dataset ${index + 1}`,
+      label: dataset.label,
       color: color,
       backgroundColor: color,
       stack: dataset.stack || undefined,

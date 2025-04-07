@@ -14,9 +14,11 @@ import { useSearchParams } from 'next/navigation';
 import { Box, Tab, Tabs, Typography, Paper, CircularProgress, Accordion, AccordionSummary, AccordionDetails, TextField, Chip, IconButton } from '@mui/material';
 import { TabContext, TabPanel } from '@mui/lab';
 
-import AddIcon from '@mui/icons-material/Add';
-import RemoveIcon from '@mui/icons-material/Remove';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
+import GavelIcon from '@mui/icons-material/Gavel';
+import CourtIcon from '@mui/icons-material/AccountBalance';
+import ChargeIcon from '@mui/icons-material/BackHand';
 
 import { courts } from '@/data';
 import { SearchResultData, ViewMode, chargeGroup } from '@/types';
@@ -33,13 +35,6 @@ import CategoryFilter from '@/components/CategoryFilter';
 import SelectionList from '@/components/SelectionList';
 
 import './styles.scss';
-
-// Custom expand icon component that switches between plus and minus
-const CustomExpandIcon = ({ expanded }: { expanded: boolean }) => (
-  expanded ? 
-    <RemoveIcon className="custom-expand-icon expanded" /> : 
-    <AddIcon className="custom-expand-icon" />
-);
 
 const ResultsPage = () => {
   const [activeTab, setActiveTab] = useState('dispositions');
@@ -588,7 +583,7 @@ const ResultsPage = () => {
               className="filter-accordion"
             >
               <AccordionSummary
-                expandIcon={<CustomExpandIcon expanded={courtAccordionExpanded} />}
+                expandIcon={<ExpandMore className="custom-expand-icon" />}
                 aria-controls="court-filter-content"
                 id="court-filter-header"
                 sx={{
@@ -604,31 +599,16 @@ const ResultsPage = () => {
                   }
                 }}
               >
-                <Typography>
+                <Typography className='accordion-title'>
+                  <CourtIcon fontSize="small" className='icon' />
                   Court
                 </Typography>
                 
                 {selectedCourtId !== 0 && (
                   <Box 
-                    sx={{ 
-                      gridArea: 'selection',
-                      width: '100%',
-                      marginTop: 1,
-                      padding: '4px',
-                      paddingLeft: '12px',
-                      border: '1px solid rgba(0, 0, 0, 0.12)',
-                      backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                      transition: 'background-color 0.2s ease',
-                      '&:hover': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                      },
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}
                     onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
                   >
-                    <Typography variant="body2">
+                    <Typography>
                       {visibleCourts.find(c => c.id === selectedCourtId)?.name || 'Selected Court'}
                     </Typography>
                     <IconButton 
@@ -688,7 +668,7 @@ const ResultsPage = () => {
               className="filter-accordion"
             >
               <AccordionSummary 
-                expandIcon={<CustomExpandIcon expanded={judgeAccordionExpanded} />}
+                expandIcon={<ExpandMore className="custom-expand-icon" />}
                 aria-controls="judge-filter-content"
                 id="judge-filter-header"
                 sx={{
@@ -704,31 +684,16 @@ const ResultsPage = () => {
                   }
                 }}
               >
-                <Typography>
+                <Typography className='accordion-title'>
+                  <GavelIcon fontSize="small" className='icon' />
                   Judge
                 </Typography>
                 
                 {selectedJudgeId !== 0 && (
                   <Box 
-                    sx={{ 
-                      gridArea: 'selection',
-                      width: '100%',
-                      marginTop: 1,
-                      padding: '4px',
-                      paddingLeft: '12px',
-                      border: '1px solid rgba(0, 0, 0, 0.12)',
-                      backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                      transition: 'background-color 0.2s ease',
-                      '&:hover': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                      },
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}
                     onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
                   >
-                    <Typography variant="body2">
+                    <Typography>
                       {judgeName || 'Selected Judge'}
                     </Typography>
                     <IconButton 
@@ -791,7 +756,7 @@ const ResultsPage = () => {
               className="filter-accordion"
             >
               <AccordionSummary
-                expandIcon={<CustomExpandIcon expanded={chargeAccordionExpanded} />}
+                expandIcon={<ExpandMore className="custom-expand-icon" />}
                 aria-controls="charge-filter-content"
                 id="charge-filter-header"
                 sx={{
@@ -807,31 +772,16 @@ const ResultsPage = () => {
                   }
                 }}
               >
-                <Typography>
+                <Typography className='accordion-title'>
+                  <ChargeIcon fontSize="small" className='icon' />
                   Charge
                 </Typography>
                 
                 {selectedChargeId !== 0 && (
                   <Box 
-                    sx={{ 
-                      gridArea: 'selection',
-                      width: '100%',
-                      marginTop: 1,
-                      padding: '4px',
-                      paddingLeft: '12px',
-                      border: '1px solid rgba(0, 0, 0, 0.12)',
-                      backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                      transition: 'background-color 0.2s ease',
-                      '&:hover': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                      },
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}
                     onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
                   >
-                    <Typography variant="body2">
+                    <Typography>
                       {chargeName || 'Selected Charge'}
                     </Typography>
                     <IconButton

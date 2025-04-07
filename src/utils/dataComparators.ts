@@ -32,7 +32,15 @@ export function calculateComparativeDispositionsData(
     const average = averageMap.get(item.type);
     
     if (!average) {
-      return item; // Return unchanged if no average found
+      return {
+        ...item,
+        ratio: 1, // Default to 1 (equal to average) if no average data exists
+        trialTypeBreakdown: {
+          bench: 1,
+          jury: 1,
+          none: 1
+        }
+      };
     }
 
     // Calculate comparative ratio - modified to handle zero/zero case
@@ -42,22 +50,24 @@ export function calculateComparativeDispositionsData(
     
     // Calculate comparative trial type breakdown - modified to handle zero/zero case
     const comparativeTrialTypeBreakdown = {
-      bench: (average.trialTypeBreakdown.bench > 0 && item.trialTypeBreakdown.bench > 0) 
+      bench: (average.trialTypeBreakdown.bench > 0 && item.trialTypeBreakdown.bench > 0)
         ? item.trialTypeBreakdown.bench / average.trialTypeBreakdown.bench
         : 1,
-      jury: (average.trialTypeBreakdown.jury > 0 && item.trialTypeBreakdown.jury > 0) 
-        ? item.trialTypeBreakdown.jury / average.trialTypeBreakdown.jury 
+      jury: (average.trialTypeBreakdown.jury > 0 && item.trialTypeBreakdown.jury > 0)
+        ? item.trialTypeBreakdown.jury / average.trialTypeBreakdown.jury
         : 1,
-      none: (average.trialTypeBreakdown.none > 0 && item.trialTypeBreakdown.none > 0) 
-        ? item.trialTypeBreakdown.none / average.trialTypeBreakdown.none 
-        : 1,
+      none: (average.trialTypeBreakdown.none > 0 && item.trialTypeBreakdown.none > 0)
+        ? item.trialTypeBreakdown.none / average.trialTypeBreakdown.none
+        : 1
     };
-
-    // Return the disposition with comparative metrics
+    
     return {
-      type: item.type,
+      ...item,
       ratio: comparativeRatio,
-      trialTypeBreakdown: comparativeTrialTypeBreakdown
+      trialTypeBreakdown: comparativeTrialTypeBreakdown,
+      // Preserve the count data from the original item
+      count: item.count,
+      trialTypeCounts: item.trialTypeCounts
     };
   });
 }
@@ -100,13 +110,13 @@ export function calculateComparativeSentencesData(
     const comparativeAverageCost = average.averageCost > 0 && item.averageCost > 0
       ? item.averageCost / average.averageCost 
       : 1;
-
-    // Return the comparative data
+    
     return {
       type: item.type,
       percentage: comparativePercentage,
       averageDays: comparativeAverageDays,
-      averageCost: comparativeAverageCost
+      averageCost: comparativeAverageCost,
+      count: item.count // Preserve the count field
     };
   });
 }
@@ -132,7 +142,6 @@ export function calculateComparativeBailData(
     }
 
     // Calculate comparative metrics
-    const comparativeCount = item.count / average.count;
     const comparativePercentage = average.percentage > 0 && item.percentage > 0
       ? item.percentage / average.percentage 
       : 1;
@@ -143,7 +152,7 @@ export function calculateComparativeBailData(
     // Return the comparative data
     return {
       type: item.type,
-      count: comparativeCount,
+      count: item.count,
       percentage: comparativePercentage,
       averageCost: comparativeAverageCost
     };
@@ -214,8 +223,7 @@ export function calculateComparativeMotionsData(
     // Return the motion with all comparative ratios in a clearer structure
     return {
       ...currentMotion,
-      // For backward compatibility
-      count: overallComparativeRatio,
+      count: currentTotal,
       // Store the ratios in a more explicit structure
       comparativeRatios: {
         overall: overallComparativeRatio,

@@ -68,9 +68,14 @@ body {
 body {
   color: var(--foreground-dark);
   background: var(--background-light);
-  font-family: "Inter", Arial, Helvetica, sans-serif;
+  font-family: "Inter", Arial, Helvetica, sans-serif !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+
+  .MuiChartsTooltip-valueCell{
+    padding-left: 8px !important;
+  }
 }
 
 * {

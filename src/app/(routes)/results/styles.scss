@@ -34,6 +34,24 @@
       border-right: 2px solid rgba(0, 0, 0, 0.05);
       padding: var(--spacing-md);
       
+
+
+      .accordion-title{
+        font-size: 1rem;
+        font-weight: 600;
+        font-family: "Inter", sans-serif !important;
+
+        display: flex;
+        align-items: center;
+
+        .icon{
+          margin-left: var(--spacing-sm);
+          width: var(--spacing-md);
+          height: var(--spacing-md);
+          margin-right: var(--spacing-md);
+        }
+      }
+      
       .filter-title {
         width: 100%;
         text-align: left;
@@ -42,6 +60,7 @@
         font-size: 1.2rem;
         padding-bottom: var(--spacing-sm);
         border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+        font-family: "Inter", sans-serif !important;
       }
       
       .filter-accordion {
@@ -76,6 +95,7 @@
             color: var(--primary-light);
             font-weight: 500;
             transition: all 0.3s ease;
+            margin-right: var(--spacing-sm);
           }
           
           .MuiAccordionSummary-content {
@@ -92,11 +112,60 @@
               font-size: 0.875rem;
               color: var(--text-secondary);
             }
+
+            .MuiBox-root {
+              grid-area: selection;
+              width: 100%;
+              margin-bottom: var(--spacing-sm);
+              margin-top: var(--spacing-md);
+              padding: 4px;
+              padding-left: 12px;
+              border: 1px solid rgba(0, 0, 0, 0.12);
+              border-radius: 2px;
+              transition: background-color 0.2s ease;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              position: relative;
+
+              &::before{
+                content: " ";
+                display: block;
+                position: absolute;
+                left: -1px;
+                top: -0.5px;
+                width: 4px;
+                height: calc(100% + 1.5px);
+                background-color: var(--accent-main);
+              }
+              
+              >p{
+                font-size: 0.85rem !important;
+                font-weight: 400 !important;
+                font-family: "Inter", sans-serif !important;
+              }
+
+              &:hover {
+                background-color: rgba(0, 0, 0, 0.04);
+              }
+            }
           }
         }
-        
+
         .MuiAccordionDetails-root {
           padding: var(--spacing-sm) 0 var(--spacing-md);
+
+          label, input, fieldset{
+            font-family: "Inter", sans-serif !important;
+            font-size: 0.85rem !important;
+            font-weight: 400 !important;
+          }
+
+          .MuiTypography-root{
+            font-size: 0.85rem !important;
+            font-weight: 400 !important;
+            font-family: "Inter", sans-serif !important;
+          }
         }
       }
     }
