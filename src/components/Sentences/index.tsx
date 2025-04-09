@@ -3,18 +3,23 @@
  * 
  * This component displays sentence data through horizontal bar charts.
  * It shows the percentage of each sentence type and the average days/costs.
+ * In severity mode, it shows the distribution of sentence buckets.
  */
-import { useMemo } from 'react';
-import { Box } from '@mui/material';
+import { useMemo, useState } from 'react';
+import { Box, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { SentenceData } from '@/types';
 import { ViewMode } from '@/types';
 import BarChartDisplay from '@/components/BarChartDisplay';
 
 // Consistent colors for sentence types
 const SENTENCE_TYPE_COLORS = {
-  FREQUENCY: '#34dea9',    // Blue (lighter)
-  DOLLARS: '#a0ef86', // Green
-  DAYS: '#00c7c7', // Blue (darker)
+  FREQUENCY: '#34dea9',
+  DOLLARS: '#a0ef86',
+  DAYS: '#00c7c7',
+  FEE: '#66bb6a',
+  HOC: '#ef5350',
+  PROBATION: '#42a5f5',
+  LICENSE: '#ffca28'
 };
 
 interface SentencesTabProps {
@@ -24,6 +29,9 @@ interface SentencesTabProps {
 }
 
 const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
+  // Add state for selected sentence type (default to Fee/Fine)
+  const [selectedSentenceType, setSelectedSentenceType] = useState<string>('Fine');
+
   // Create frequency formatter for percentage values
   const frequencyValueFormatter = (value: number | null) => {
     if (value === null) return '';
@@ -58,74 +66,50 @@ const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
       return `${value.toFixed(1)}% | ${count.toLocaleString()} Sentences Found`;
     }
   };
-  
-  // Create formatter for monetary values (dollars)
-  const dollarsValueFormatter = (value: number | null) => {
+
+  // Create formatter for buckets tooltip
+  const bucketValueFormatter = (value: number | null) => {
     if (value === null) return '';
     
-    // Find the monetary item (Fine) with this value
-    const item = data.find(d => {
-      const isMonetary = d.type.toLowerCase().includes('fine');
-      if (!isMonetary) return false;
-      
+    // Find the selected sentence type item to get the buckets
+    const sentenceItem = data.find(item => item.type.includes(selectedSentenceType));
+    if (!sentenceItem || !sentenceItem.sentenceBuckets) return '';
+    
+    // Find the matching bucket
+    const bucket = sentenceItem.sentenceBuckets.find(b => {
       if (viewMode === 'objective') {
-        return Math.abs(d.averageCost - value) < 0.01;
+        // Use nullish coalescing to handle undefined percentage
+        const bucketPct = b.percentage ?? 0;
+        return Math.abs(bucketPct - value) < 0.01;
       } else {
-        // In comparative mode, transform back: value/100 + 1
+        // In comparative mode, convert back from the transformed value
         const originalValue = value / 100 + 1;
-        return Math.abs(d.averageCost - originalValue) < 0.01;
+        const bucketPct = b.percentage ?? 0;
+        return Math.abs(bucketPct - originalValue) < 0.01;
       }
     });
     
-    if (!item) return '';
-    
-    const count = item.count || 0;
+    if (!bucket) return '';
     
     if (viewMode === 'comparative') {
       if (Math.abs(value) < 0.01) {
-        return `Same as average | ${count} Sentences Found`;
+        return `Same as average | ${bucket.count.toLocaleString()} ${selectedSentenceType}s`;
       } else if (value > 0) {
-        return `${Math.abs(value).toFixed(1)}% above average | ${count} Sentences Found`;
+        return `${Math.abs(value).toFixed(1)}% above average | ${bucket.count.toLocaleString()} ${selectedSentenceType}s`;
       } else {
-        return `${Math.abs(value).toFixed(1)}% below average | ${count} Sentences Found`;
+        return `${Math.abs(value).toFixed(1)}% below average | ${bucket.count.toLocaleString()} ${selectedSentenceType}s`;
       }
     } else {
-      return `$${value.toFixed(0)} | ${count} Sentences Found`;
+      // Handle potentially undefined percentage
+      const percentage = bucket.percentage ?? 0;
+      return `${percentage.toFixed(1)}% of ${selectedSentenceType}s | ${bucket.count.toLocaleString()} total sentences`;
     }
   };
-  
-  // Create formatter for day values
-  const daysValueFormatter = (value: number | null) => {
-    if (value === null) return '';
-    
-    // Find the non-monetary item with this day value
-    const item = data.find(d => {
-      const isMonetary = d.type.toLowerCase().includes('fine');
-      if (isMonetary) return false;
-      
-      if (viewMode === 'objective') {
-        return Math.abs(d.averageDays - value) < 0.01;
-      } else {
-        // In comparative mode, transform back: value/100 + 1
-        const originalValue = value / 100 + 1;
-        return Math.abs(d.averageDays - originalValue) < 0.01;
-      }
-    });
-    
-    if (!item) return '';
-    
-    const count = item.count || 0;
-    
-    if (viewMode === 'comparative') {
-      if (Math.abs(value) < 0.01) {
-        return `Same as average | ${count} Sentences Found`;
-      } else if (value > 0) {
-        return `${Math.abs(value).toFixed(1)}% above average | ${count} Sentences Found`;
-      } else {
-        return `${Math.abs(value).toFixed(1)}% below average | ${count} Sentences Found`;
-      }
-    } else {
-      return `${value.toFixed(0)} days | ${count} Sentences Found`;
+
+  // Handle sentence type toggle change
+  const handleSentenceTypeChange = (event: React.MouseEvent<HTMLElement>, newType: string) => {
+    if (newType !== null) {
+      setSelectedSentenceType(newType);
     }
   };
 
@@ -153,39 +137,38 @@ const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
         ]
       };
     } else { // severity mode
-      // Create two separate datasets for dollars and days
-      const dollarValues = data.map(item => {
-        const isMonetary = item.type.toLowerCase().includes('fine');
-        return isMonetary ? item.averageCost : null;
-      });
+      // In severity mode, show bucket distribution for the selected sentence type
+      const selectedItem = data.find(item => item.type.includes(selectedSentenceType));
       
-      const dayValues = data.map(item => {
-        const isMonetary = item.type.toLowerCase().includes('fine');
-        return !isMonetary ? item.averageDays : null;
-      });
+      if (!selectedItem || !selectedItem.sentenceBuckets || selectedItem.sentenceBuckets.length === 0) {
+        return { labels: [], datasets: [] };
+      }
+      
+      // Extract bucket data for the chart
+      const labels = selectedItem.sentenceBuckets.map(bucket => bucket.label);
+      const chartValues = selectedItem.sentenceBuckets.map(bucket => bucket.percentage ?? 0);
+      
+      // Determine color based on sentence type
+      let color = SENTENCE_TYPE_COLORS.FREQUENCY;
+      if (selectedSentenceType === 'Fine') color = SENTENCE_TYPE_COLORS.FEE;
+      else if (selectedSentenceType === 'Incarceration') color = SENTENCE_TYPE_COLORS.HOC;
+      else if (selectedSentenceType === 'Probation') color = SENTENCE_TYPE_COLORS.PROBATION;
+      else if (selectedSentenceType === 'License\nSuspension') color = SENTENCE_TYPE_COLORS.LICENSE;
       
       return {
         labels,
         datasets: [
           {
-            data: dollarValues,
-            label: 'Dollars',
-            color: SENTENCE_TYPE_COLORS.DOLLARS,
-            backgroundColor: SENTENCE_TYPE_COLORS.DOLLARS,
-            stack: 'stack1',
-            valueFormatter: dollarsValueFormatter
-          },
-          {
-            data: dayValues,
-            label: 'Days',
-            backgroundColor: SENTENCE_TYPE_COLORS.DAYS,
-            stack: 'stack1',
-            valueFormatter: daysValueFormatter
+            data: chartValues,
+            label: '',
+            color: color,
+            backgroundColor: color,
+            valueFormatter: bucketValueFormatter
           }
         ]
       };
     }
-  }, [data, viewMode, displayMode]);
+  }, [data, viewMode, displayMode, selectedSentenceType]);
 
   // If no data, display a message
   if (!data || data.length === 0) {
@@ -201,23 +184,38 @@ const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
       <div className="chart-section">
         <BarChartDisplay 
           chartData={chartData} 
-          xAxisLabel={viewMode === 'comparative' ? (displayMode === 'frequency' ? 'Sentencing Ratio Relative to Average' : 'Average Sentence Days/Dollars Relative to Average') : (displayMode === 'frequency' ? 'Percent of Cases Sentenced' : 'Average Sentence Days/Dollars')}
+          layout={displayMode === 'severity' ? 'vertical' : 'horizontal'}
+          xAxisLabel={
+            viewMode === 'comparative' 
+              ? (displayMode === 'frequency' 
+                ? 'Sentencing Ratio Relative to Average' 
+                : 'Distribution Relative to Average')
+              : (displayMode === 'frequency' 
+                ? 'Percent of Cases Sentenced' 
+                : 'Percent of Sentences')
+          }
           viewMode={viewMode}
-          margin={{ top: 30, bottom: 50, left: 100, right: 50 }}
-          preserveStackInComparative={true}
+          margin={
+            displayMode === 'severity'
+              ? { top: 30, bottom: 40, left: 60, right: 50 }
+              : { top: 30, bottom: 50, left: 100, right: 50 }
+          }
+          preserveStackInComparative={displayMode === 'frequency'}
           domainConfig={
             viewMode === 'objective' 
-              ? {
-                  type: 'dynamic',
-                  strategy: 'exponential',
-                  parameters: {
-                    baseBuffer: 0.8,
-                    minBuffer: 0.1,
-                    decayFactor: 0.5,
-                    thresholdValue: 5,
-                    safeguardMin: 0
-                  }
-                }
+              ? (displayMode === 'severity'
+                  ? { type: 'fixed', min: 0, max: 100 } 
+                  : { 
+                      type: 'dynamic',
+                      strategy: 'exponential',
+                      parameters: {
+                        baseBuffer: 0.8,
+                        minBuffer: 0.1,
+                        decayFactor: 0.5,
+                        thresholdValue: 5,
+                        safeguardMin: 0
+                      }
+                    })
               : {
                   type: 'dynamic',
                   strategy: 'exponential',
@@ -230,6 +228,34 @@ const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
                 }
           }
         />
+        
+        {/* Add toggle buttons for sentence types when in severity mode */}
+        {displayMode === 'severity' && (
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              '& .MuiToggleButtonGroup-root': {
+                height: '36px'
+              }
+            }}
+          >
+            <ToggleButtonGroup
+              value={selectedSentenceType}
+              exclusive
+              onChange={handleSentenceTypeChange}
+              aria-label="sentence type"
+              size="medium"
+              color="primary"
+              sx={{paddingLeft: 2, paddingRight: 2}} 
+            >
+              <ToggleButton value="Fine">Fine</ToggleButton>
+              <ToggleButton value="Incarceration">Incarceration</ToggleButton>
+              <ToggleButton value="Probation">Probation</ToggleButton>
+              <ToggleButton value="License">License</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        )}
       </div>
     </div>
   );

@@ -130,35 +130,97 @@ export function transformSentencesData(rawData: ApiResponse): SentenceData[] {
       countField: 'license_lost_count',
       totalField: null,
       daysField: 'total_license_lost_days',
+      bucketPrefix: 'license_lost_',
+      buckets: [
+        { field: 'license_lost_1', label: '1 month' },
+        { field: 'license_lost_2', label: '2 months' },
+        { field: 'license_lost_3', label: '3 months' },
+        { field: 'license_lost_4', label: '4 months' },
+        { field: 'license_lost_6', label: '6 months' },
+        { field: 'license_lost_8', label: '8 months' },
+        { field: 'license_lost_10', label: '10 months' },
+        { field: 'license_lost_12', label: '12 months' },
+        { field: 'license_lost_15', label: '15 months' },
+        { field: 'license_lost_18', label: '18 months' },
+        { field: 'license_lost_21', label: '21 months' },
+        { field: 'license_lost_24', label: '24 months' },
+        { field: 'license_lost_24_plus', label: '24+ months' }
+      ]
     },
     { 
       type: 'Fine',
       countField: 'fee_count',
       totalField: 'total_fee',
       daysField: null,
+      bucketPrefix: 'fee_',
+      buckets: [
+        { field: 'fee_50', label: '$50' },
+        { field: 'fee_100', label: '$100' },
+        { field: 'fee_200', label: '$200' },
+        { field: 'fee_300', label: '$300' },
+        { field: 'fee_500', label: '$500' },
+        { field: 'fee_1000', label: '$1,000' },
+        { field: 'fee_2000', label: '$2,000' },
+        { field: 'fee_3000', label: '$3,000' },
+        { field: 'fee_4000', label: '$4,000' },
+        { field: 'fee_5000', label: '$5,000' },
+        { field: 'fee_5000_plus', label: '$5,000+' }
+      ]
     },
     { 
       type: 'Probation',
       countField: 'probation_count',
       totalField: null,
       daysField: 'total_probation_days',
+      bucketPrefix: 'probation_',
+      buckets: [
+        { field: 'probation_1', label: '1 month' },
+        { field: 'probation_2', label: '2 months' },
+        { field: 'probation_3', label: '3 months' },
+        { field: 'probation_4', label: '4 months' },
+        { field: 'probation_6', label: '6 months' },
+        { field: 'probation_8', label: '8 months' },
+        { field: 'probation_10', label: '10 months' },
+        { field: 'probation_12', label: '12 months' },
+        { field: 'probation_15', label: '15 months' },
+        { field: 'probation_18', label: '18 months' },
+        { field: 'probation_21', label: '21 months' },
+        { field: 'probation_24', label: '24 months' },
+        { field: 'probation_24_plus', label: '24+ months' }
+      ]
     },
     { 
       type: 'Incarceration',
       countField: 'hoc_count',
       totalField: null,
       daysField: 'total_hoc_days',
+      bucketPrefix: 'hoc_',
+      buckets: [
+        { field: 'hoc_1', label: '1 month' },
+        { field: 'hoc_2', label: '2 months' },
+        { field: 'hoc_3', label: '3 months' },
+        { field: 'hoc_4', label: '4 months' },
+        { field: 'hoc_6', label: '6 months' },
+        { field: 'hoc_8', label: '8 months' },
+        { field: 'hoc_10', label: '10 months' },
+        { field: 'hoc_12', label: '12 months' },
+        { field: 'hoc_15', label: '15 months' },
+        { field: 'hoc_18', label: '18 months' },
+        { field: 'hoc_21', label: '21 months' },
+        { field: 'hoc_24', label: '24 months' },
+        { field: 'hoc_24_plus', label: '24+ months' }
+      ]
     },
   ];
 
   // Calculate the total number of cases
   const totalChargesDisposed = rawData.specification.reduce((sum, spec) => sum + spec.total_charges_disposed, 0);
 
+  // Get the specification with all data
+  const spec = rawData.specification.find(s => s.trial_category === 'any') || rawData.specification[0];
+
   // Transform each sentence type
   return sentenceTypes.map(sentenceType => {
-    // Get the specification with all data
-    const spec = rawData.specification.find(s => s.trial_category === 'any') || rawData.specification[0];
-    
     // Get the count for this sentence type
     const count = spec[sentenceType.countField] || 0;
     
@@ -177,17 +239,29 @@ export function transformSentencesData(rawData: ApiResponse): SentenceData[] {
       averageCost = spec[sentenceType.totalField] / count;
     }
     
+    // Process bucket data for this sentence type
+    const bucketData = sentenceType.buckets.map(bucket => {
+      const bucketCount = spec[bucket.field] || 0;
+      const bucketPercentage = count > 0 ? (bucketCount / count) * 100 : 0;
+      
+      return {
+        label: bucket.label,
+        count: bucketCount,
+        percentage: bucketPercentage
+      };
+    }); // Filter out buckets with zero count
+    
     return {
       type: sentenceType.type,
       percentage,
       averageDays,
       averageCost,
-      count // Include the count in the returned object
+      count,
+      sentenceBuckets: bucketData
     };
   });
 }
 
-// File: src/utils/dataTransformers.ts
 export function transformBailData(rawData: ApiResponse): BailDecisionData[] {
   if (!rawData || !rawData.specification || rawData.specification.length === 0) {
     console.warn('No bail data available for sentences transformation');
@@ -207,8 +281,42 @@ export function transformBailData(rawData: ApiResponse): BailDecisionData[] {
     totalBailDecisions += (spec.free_bail || 0) + (spec.cost_bail || 0) + (spec.denied_bail || 0);
   });
 
+  // Get the "any" category specification for bucket data
+  const anySpec = rawData.specification.find(spec => spec.trial_category === 'any') || rawData.specification[0];
+  
+  // Define bail amount buckets and extract from specification
+  const bailBuckets = [
+    { field: 'bail_500', amount: '$500' },
+    { field: 'bail_1000', amount: '$1,000' },
+    { field: 'bail_2000', amount: '$2,000' },
+    { field: 'bail_3000', amount: '$3,000' },
+    { field: 'bail_5000', amount: '$5,000' },
+    { field: 'bail_10000', amount: '$10,000' },
+    { field: 'bail_15000', amount: '$15,000' },
+    { field: 'bail_20000', amount: '$20,000' },
+    { field: 'bail_30000', amount: '$30,000' },
+    { field: 'bail_40000', amount: '$40,000' },
+    { field: 'bail_50000', amount: '$50,000' },
+    { field: 'bail_50000_plus', amount: '$50,000+' }
+  ];
+  
+  // Calculate total cash bail cases for percentage calculation
+  const totalCashBail = anySpec.cost_bail || 0;
+  
+  // Extract bail bucket data
+  const bucketData = bailBuckets.map(bucket => {
+    const count = anySpec[bucket.field] || 0;
+    const percentage = totalCashBail > 0 ? (count / totalCashBail) * 100 : 0;
+    
+    return {
+      amount: bucket.amount,
+      count,
+      percentage
+    };
+  }); // Filter out buckets with zero count
+
   // Transform each bail type
-  return bailTypes.map(({ type, countField, costField }) => {
+  const result = bailTypes.map(({ type, countField, costField }) => {
     // Calculate total count and cost
     let count = 0;
     let totalCost = 0;
@@ -224,13 +332,22 @@ export function transformBailData(rawData: ApiResponse): BailDecisionData[] {
     const percentage = totalBailDecisions > 0 ? (count / totalBailDecisions) * 100 : 0;
     const averageCost = count > 0 && costField ? totalCost / count : 0;
 
-    return {
+    const item: BailDecisionData = {
       type,
       count,
       percentage,
       averageCost
     };
-  }).filter(item => item.count > 0); // Filter out types with zero count
+
+    // Add bucket data only to the "Cash Bail" type
+    if (type === "Cash Bail") {
+      item.bailBuckets = bucketData;
+    }
+
+    return item;
+  })
+  
+  return result;
 }
 
 /**

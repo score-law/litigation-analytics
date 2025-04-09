@@ -298,7 +298,7 @@ const loadInitialJudges = async (search: string = '') => {
   
     // Add charge ID if selected
     if (selectedCharge) {
-      params.append('chargeId', selectedCharge.id.toString());
+      params.append('chargeId', (selectedCharge.id + 2000).toString());
     }
   
     // Redirect to /results with the query string

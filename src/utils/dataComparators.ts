@@ -111,17 +111,54 @@ export function calculateComparativeSentencesData(
       ? item.averageCost / average.averageCost 
       : 1;
     
+    // Calculate comparative ratios for sentence buckets
+    let comparativeSentenceBuckets = item.sentenceBuckets;
+    
+    if (item.sentenceBuckets && average.sentenceBuckets) {
+      // Create a map of average buckets for quick lookup
+      const averageBucketsMap = new Map();
+      average.sentenceBuckets.forEach(bucket => {
+        averageBucketsMap.set(bucket.label, bucket);
+      });
+      
+      // Calculate comparative values for each bucket
+      comparativeSentenceBuckets = item.sentenceBuckets.map(bucket => {
+        const avgBucket = averageBucketsMap.get(bucket.label);
+        
+        if (!avgBucket || avgBucket.count === 0 || (avgBucket.percentage ?? 0) === 0) {
+          return {
+            ...bucket,
+            percentage: 1 // Set to exactly average (1) instead of keeping original
+          };
+        }
+        
+        // Keep the actual count instead of replacing it with a ratio
+        const actualCount = bucket.count;
+        
+        // Calculate comparative percentage for the bucket
+        const comparativePercentage = (avgBucket.percentage ?? 0) > 0 && actualCount > 0
+          ? (bucket.percentage ?? 0) / (avgBucket.percentage ?? 0)
+          : 1;
+        
+        return {
+          label: bucket.label,
+          count: actualCount,
+          percentage: comparativePercentage
+        };
+      });
+    }
+    
     return {
       type: item.type,
       percentage: comparativePercentage,
       averageDays: comparativeAverageDays,
       averageCost: comparativeAverageCost,
-      count: item.count // Preserve the count field
+      count: item.count, // Preserve the count field
+      sentenceBuckets: comparativeSentenceBuckets // Include the comparative buckets
     };
   });
 }
   
-// File: src/utils/dataComparators.ts
 export function calculateComparativeBailData(
   data: BailDecisionData[], 
   averageData: BailDecisionData[]
@@ -149,16 +186,54 @@ export function calculateComparativeBailData(
       ? item.averageCost / average.averageCost 
       : 1;
 
+    // Calculate comparative ratios for bail buckets
+    let comparativeBailBuckets = item.bailBuckets;
+    
+    if (item.bailBuckets && average.bailBuckets) {
+      // Create a map of average buckets for quick lookup
+      const averageBucketsMap = new Map();
+      average.bailBuckets.forEach(bucket => {
+        averageBucketsMap.set(bucket.amount, bucket);
+      });
+      
+      // Calculate comparative values for each bucket
+      comparativeBailBuckets = item.bailBuckets.map(bucket => {
+        const avgBucket = averageBucketsMap.get(bucket.amount);
+        
+        if (!avgBucket || avgBucket.count === 0) {
+          return {
+            ...bucket,
+            percentage: 1 // Set to exactly average (1) instead of keeping original
+          };
+        }
+        
+        // Keep the actual count instead of replacing it with a ratio
+        const actualCount = bucket.count;
+        
+        // Calculate comparative percentage for the bucket
+        const comparativePercentage = (avgBucket.percentage ?? 0) > 0 && actualCount > 0
+          ? (bucket.percentage ?? 0) / (avgBucket.percentage ?? 0)
+          : 1;
+        
+        return {
+          amount: bucket.amount,
+          count: actualCount, // Keep the original count instead of using comparativeCount
+          percentage: comparativePercentage // Transform percentage for the chart
+        };
+      });
+    }
+
     // Return the comparative data
     return {
       type: item.type,
       count: item.count,
       percentage: comparativePercentage,
-      averageCost: comparativeAverageCost
+      averageCost: comparativeAverageCost,
+      bailBuckets: comparativeBailBuckets
     };
   });
 }
-  
+
 /**
  * Calculates comparative metrics for motion data by comparing with averages.
  * Calculates separate comparative ratios for all motions, prosecution motions, and defense motions.

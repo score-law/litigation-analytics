@@ -18,6 +18,12 @@ export interface Charge {
   description?: string;
 }
 
+export interface ChargeGroup {
+  id: number;
+  name: string;
+  type: 'title' | 'chapter';
+}
+
 // Data types for dispositions tab
 export interface DispositionData {
   type: string;
@@ -42,14 +48,25 @@ export interface SentenceData {
   averageDays: number;
   averageCost: number;
   count: number;
+  sentenceBuckets?: Array<{
+    label: string;
+    count: number;
+    percentage?: number;
+  }>;
 }
 
 // Data types for bail decisions tab
 export interface BailDecisionData {
   type: string;
   count: number;
-  percentage: number; // Add this field
+  percentage: number;
   averageCost: number;
+  // Add bail buckets data
+  bailBuckets?: {
+    amount: string;     // e.g. "$500", "$1,000", etc.
+    count: number;      // Number of cases with this bail amount
+    percentage?: number; // Percentage of total bail cases
+  }[];
 }
 
 export interface MotionData {
@@ -95,18 +112,9 @@ export interface SearchResultData {
 export interface SpecificationData extends RowDataPacket {
   specification_id: number;
   judge_id: number;
-  prosecution_id: number;
   charge_id: number;
   court_id: number;
-  charge_severity: number;
   trial_category: 'jury_trial' | 'bench_trial' | 'any';
-  
-  // Bail-related fields
-  total_bail_decisions: number;
-  free_bail: number;
-  cost_bail: number;
-  total_bail_cost: number;
-  denied_bail: number;
   
   // Case count fields
   total_case_dispositions: number;
@@ -125,15 +133,84 @@ export interface SpecificationData extends RowDataPacket {
   // Sentence-related fields
   fee_count: number;
   total_fee: number;
+  fee_50: number;
+  fee_100: number;
+  fee_200: number;
+  fee_300: number;
+  fee_500: number;
+  fee_1000: number;
+  fee_2000: number;
+  fee_3000: number;
+  fee_4000: number;
+  fee_5000: number;
+  fee_5000_plus: number;
+
   hoc_count: number;
   total_hoc_days: number;
+  hoc_1: number;
+  hoc_2: number;
+  hoc_3: number;
+  hoc_4: number;
+  hoc_6: number;
+  hoc_8: number;
+  hoc_10: number;
+  hoc_12: number;
+  hoc_15: number;
+  hoc_18: number;
+  hoc_21: number;
+  hoc_24: number;
+  hoc_24_plus: number;
+
   probation_count: number;
   probation_days: number;
+  probation_1: number;
+  probation_2: number;
+  probation_3: number;
+  probation_4: number;
+  probation_6: number;
+  probation_8: number;
+  probation_10: number;
+  probation_12: number;
+  probation_15: number;
+  probation_18: number;
+  probation_21: number;
+  probation_24: number;
+  probation_24_plus: number;
+
   license_lost_count: number;
   license_lost_days: number;
-  
-  // Recent cases JSON field
-  recent_cases: string; // JSON string of recent case numbers
+  license_lost_1: number;
+  license_lost_2: number;
+  license_lost_3: number;
+  license_lost_4: number;
+  license_lost_6: number;
+  license_lost_8: number;
+  license_lost_10: number;
+  license_lost_12: number;
+  license_lost_15: number;
+  license_lost_18: number;
+  license_lost_21: number;
+  license_lost_24: number;
+  license_lost_24_plus: number;
+    
+  // Bail-related fields
+  total_bail_decisions: number;
+  free_bail: number;
+  cost_bail: number;
+  total_bail_cost: number;
+  denied_bail: number;
+  bail_500: number;
+  bail_1000: number;
+  bail_2000: number;
+  bail_3000: number;
+  bail_5000: number;
+  bail_10000: number;
+  bail_15000: number;
+  bail_20000: number;
+  bail_30000: number;
+  bail_40000: number;
+  bail_50000: number;
+  bail_50000_plus: number;
 }
 
 // Motion data table type

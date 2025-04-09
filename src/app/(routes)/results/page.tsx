@@ -18,9 +18,10 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
 import GavelIcon from '@mui/icons-material/Gavel';
 import CourtIcon from '@mui/icons-material/AccountBalance';
-import ChargeIcon from '@mui/icons-material/BackHand';
+import ChargeIcon from '@mui/icons-material/Person4';
+import ChargeGroupsIcon from '@mui/icons-material/Groups2';
 
-import { courts } from '@/data';
+import { courts, chargeGroups } from '@/data';
 import { SearchResultData, ViewMode, chargeGroup } from '@/types';
 
 import { calculateComparativeDispositionsData, calculateComparativeSentencesData, calculateComparativeBailData, calculateComparativeMotionsData } from '@/utils/dataComparators';
@@ -56,12 +57,9 @@ const ResultsPage = () => {
   const [selectedChargeId, setSelectedChargeId] = useState<number>(
     parseInt(searchParams.get('chargeId') || '0')
   );
-
-  const [chargeGroup, setChargeGroup] = useState<chargeGroup>('charge');
   
   // tracking charge name
   const [chargeName, setChargeName] = useState<string>('');
-
   const [judgeName, setJudgeName] = useState<string>('');
   
   // State to track the parameters used in the final query
@@ -106,26 +104,57 @@ const ResultsPage = () => {
   const [visibleJudges, setVisibleJudges] = useState<Array<{ id: number; name: string }>>([]);
   const [visibleCharges, setVisibleCharges] = useState<Array<{ id: number; name: string }>>([]);
   
+  // State for loading indicators
   const [loadingCourts, setLoadingCourts] = useState<boolean>(false);
   const [loadingJudges, setLoadingJudges] = useState<boolean>(false);
   const [loadingCharges, setLoadingCharges] = useState<boolean>(false);
   
+  // State for loading more items
   const [hasMoreCourts, setHasMoreCourts] = useState<boolean>(true);
   const [hasMoreJudges, setHasMoreJudges] = useState<boolean>(true);
   const [hasMoreCharges, setHasMoreCharges] = useState<boolean>(true);
+
+  // Charge Group Accordion states
+  const [chargeGroupAccordionExpanded, setChargeGroupAccordionExpanded] = useState<boolean>(false);
+  const [chargeGroupSearchTerm, setChargeGroupSearchTerm] = useState('');
+  const [debouncedChargeGroupSearchTerm, setDebouncedChargeGroupSearchTerm] = useState('');
+  const [isTypingChargeGroup, setIsTypingChargeGroup] = useState(false);
+
+  // Define filter options
+  const TRIAL_TYPE_OPTIONS = [
+    { value: "all", label: "All Trials" },
+    { value: "jury", label: "Jury Trial" },
+    { value: "bench", label: "Bench Trial" }
+  ];
+
+  const SENTENCE_DISPLAY_OPTIONS = [
+    { value: "frequency", label: "Frequency" },
+    { value: "severity", label: "Severity" }
+  ];
+
+  // Add BAIL_DISPLAY_OPTIONS constant
+  const BAIL_DISPLAY_OPTIONS = [
+    { value: "frequency", label: "Frequency" },
+    { value: "severity", label: "Severity" }
+  ];
+    
+  const PARTY_OPTIONS = [
+    { value: "all", label: "All Parties" },
+    { value: "prosecution", label: "Prosecution" },
+    { value: "defense", label: "Defense" }
+  ];
+
+  const filteredChargeGroups = chargeGroups.map(group => {
+    return {
+      id: (group.type == "chapter" ? group.id + 1000 : group.id),
+      name: group.name,
+      type: group.type,
+    };
+  })
   
   // Targeted data fetching function with minimal state updates
-  const fetchFilteredData = useCallback(async (court: number, judge: number, charge: number, charge_group: chargeGroup) => {
+  const fetchFilteredData = useCallback(async (court: number, judge: number, charge: number) => {
     try {
-      // Section charges into proper group
-      if (charge != 0) {
-        if (charge_group === 'charge') {
-          charge = (charge + 2000)
-        } else if (charge_group === 'chapter') {
-          charge = (charge + 1000)
-        }
-      }
-
       const params = new URLSearchParams();
       params.set('courtId', court.toString());
       params.set('judgeId', judge.toString());
@@ -197,7 +226,7 @@ const ResultsPage = () => {
       console.error('Error fetching data:', error);
       setError('Failed to fetch data. Please try again.');
     }
-  }, []);
+  }, [finalParams]);
 
   // Function to update URL without triggering re-fetches
   const syncUrlWithState = useCallback(() => {
@@ -208,13 +237,13 @@ const ResultsPage = () => {
     
     const newUrl = `${window.location.pathname}?${newParams.toString()}`;
     window.history.replaceState({}, '', newUrl);
-  }, [selectedCourtId, selectedJudgeId, selectedChargeId, chargeGroup]);
+  }, [selectedCourtId, selectedJudgeId, selectedChargeId]);
 
   // Sync URL with state whenever selection changes
   useEffect(() => {
-    fetchFilteredData(selectedCourtId, selectedJudgeId, selectedChargeId, chargeGroup);
+    fetchFilteredData(selectedCourtId, selectedJudgeId, selectedChargeId);
     syncUrlWithState();
-  }, [selectedCourtId, selectedJudgeId, selectedChargeId, chargeGroup, syncUrlWithState]);
+  }, [selectedCourtId, selectedJudgeId, selectedChargeId, syncUrlWithState]);
   
   // Debounce effect for charge search
   useEffect(() => {
@@ -272,7 +301,7 @@ const ResultsPage = () => {
     };
     
     fetchInitialCharges();
-  }, [debouncedChargeSearchTerm]); // Changed dependency from chargeSearchTerm to debouncedChargeSearchTerm
+  }, [debouncedChargeSearchTerm]);
 
   // Update the useEffect for initial judge loading to use the API
   useEffect(() => {
@@ -300,6 +329,17 @@ const ResultsPage = () => {
     
     fetchInitialJudges();
   }, [debouncedJudgeSearchTerm]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedChargeGroupSearchTerm(chargeGroupSearchTerm);
+      setIsTypingChargeGroup(false);
+    }, 500); // 500ms debounce delay
+    
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [chargeGroupSearchTerm]);
 
   // Handler for loading more courts with real pagination
   const loadMoreCourts = () => {
@@ -363,30 +403,16 @@ const ResultsPage = () => {
       setLoadingCharges(false);
     }
   };
-    
-  // Define filter options
-  const TRIAL_TYPE_OPTIONS = [
-    { value: "all", label: "All Trials" },
-    { value: "jury", label: "Jury Trial" },
-    { value: "bench", label: "Bench Trial" }
-  ];
 
-  const SENTENCE_DISPLAY_OPTIONS = [
-    { value: "frequency", label: "Frequency" },
-    { value: "severity", label: "Severity" }
-  ];
 
-  // Add BAIL_DISPLAY_OPTIONS constant
-  const BAIL_DISPLAY_OPTIONS = [
-    { value: "frequency", label: "Frequency" },
-    { value: "severity", label: "Severity" }
-  ];
-   
-  const PARTY_OPTIONS = [
-    { value: "all", label: "All Parties" },
-    { value: "prosecution", label: "Prosecution" },
-    { value: "defense", label: "Defense" }
-  ];
+
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
+    setActiveTab(newValue);
+  };
+
+
+
 
   // Handle charge search input change
   const handleChargeSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -398,6 +424,13 @@ const ResultsPage = () => {
     setJudgeSearchTerm(e.target.value);
     setIsTypingJudge(true);
   };
+
+  const handleChargeGroupSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setChargeGroupSearchTerm(e.target.value);
+    setIsTypingChargeGroup(true);
+  };
+
+
 
   // Handler functions for accordion toggling
   const handleCourtAccordionChange = (event: React.SyntheticEvent, isExpanded: boolean) => {
@@ -412,9 +445,12 @@ const ResultsPage = () => {
     setChargeAccordionExpanded(isExpanded);
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
-    setActiveTab(newValue);
+  const handleChargeGroupAccordionChange = (event: React.SyntheticEvent, isExpanded: boolean) => {
+    setChargeGroupAccordionExpanded(isExpanded);
   };
+
+
+
   
   // Add handlers for view mode changes
   const handleDispositionsViewModeChange = (newMode: ViewMode) => {
@@ -464,6 +500,18 @@ const ResultsPage = () => {
   const handleChargeSelect = (id: number) => {
     setSelectedChargeId(id);
   };
+
+  const handleChargeGroupSelect = (id: number) => {
+    const selectedItem = filteredChargeGroups.find(item => item.id === id);
+    
+    if (selectedItem) {
+      // Update selected ID and name
+      setSelectedChargeId(id);
+      
+      // Clear charge selection for mutual exclusivity
+      setChargeName('');
+    }
+  };
   
   // Helper function to get the appropriate data based on view mode
   const getDataForViewMode = (
@@ -510,7 +558,7 @@ const ResultsPage = () => {
       return;
     }
     
-    const selectedCharge = visibleCharges.find(charge => charge.id === selectedChargeId);
+    const selectedCharge = visibleCharges.find(charge => charge.id === (selectedChargeId - 2000));
     if (selectedCharge) {
       setChargeName(selectedCharge.name);
     } else {
@@ -777,7 +825,7 @@ const ResultsPage = () => {
                   Charge
                 </Typography>
                 
-                {selectedChargeId !== 0 && (
+                {selectedChargeId >= 2000 && (
                   <Box 
                     onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
                   >
@@ -822,14 +870,107 @@ const ResultsPage = () => {
                     <SelectionList
                       items={visibleCharges.filter(charge => 
                         charge.name.toLowerCase().includes(chargeSearchTerm.toLowerCase()) && 
-                        charge.id !== selectedChargeId
-                      )}
+                        (charge.id + 2000 !== selectedChargeId)
+                      ).map(item => ({
+                        id: item.id + 2000,
+                        name: item.name,
+                      }))}
                       selectedId={finalParams?.chargeId || 0}
                       onSelect={handleChargeSelect}
                       searchTerm={debouncedChargeSearchTerm}
                       loading={loadingCharges}
                       loadMore={loadMoreCharges}
                       hasMore={hasMoreCharges}
+                      type="charge"
+                    />
+                  </>
+                )}
+              </AccordionDetails>
+            </Accordion>
+
+              
+            {/* Charge Group Accordion */}
+            <Accordion 
+              expanded={chargeGroupAccordionExpanded}
+              onChange={handleChargeGroupAccordionChange}
+              className="filter-accordion"
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMore className="custom-expand-icon" />}
+                aria-controls="charge-group-filter-content"
+                id="charge-group-filter-header"
+                sx={{
+                  display: 'grid',
+                  gridTemplateAreas: `
+                    "title expandIcon"
+                    "selection selection"
+                  `,
+                  gridTemplateColumns: '1fr auto',
+                  alignItems: 'start',
+                  '& .MuiAccordionSummary-content': {
+                    display: 'contents',
+                  }
+                }}
+              >
+                <Typography className='accordion-title'>
+                  <ChargeGroupsIcon fontSize="small" className='icon' />
+                  Charge Group
+                </Typography>
+                
+                {(selectedChargeId !== 0 && selectedChargeId < 2000) && (
+                  <Box 
+                    onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
+                  >
+                    <Typography>
+                      {filteredChargeGroups.find(c => c.id === selectedChargeId)?.name || 'Selected Charge Group'}
+                    </Typography>
+                    <IconButton
+                      className='delete-icon'
+                      size="small" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedChargeId(0);
+                      }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                )}
+              </AccordionSummary>
+              <AccordionDetails>
+                {chargeGroupAccordionExpanded && (
+                  <>
+                    <TextField 
+                      label="Search Charge Groups"
+                      variant="outlined"
+                      fullWidth
+                      size="small"
+                      value={chargeGroupSearchTerm}
+                      onChange={handleChargeGroupSearch}
+                      InputProps={{
+                        endAdornment: isTypingChargeGroup ? <CircularProgress size={20} /> : null
+                      }}
+                      sx={{
+                        mt: 0,
+                        mb: 0,
+                        '& .MuiOutlinedInput-root': {
+                          borderBottomLeftRadius: 0,
+                          borderBottomRightRadius: 0,
+                        }
+                      }}
+                    />
+                    <SelectionList
+                      items={filteredChargeGroups
+                        .filter(item => 
+                          item.name.toLowerCase().includes(chargeGroupSearchTerm.toLowerCase()) && 
+                          (item.id !== selectedChargeId)
+                        )}
+                      selectedId={selectedChargeId}
+                      onSelect={handleChargeGroupSelect}
+                      searchTerm={chargeGroupSearchTerm}
+                      loading={false}
+                      loadMore={() => {}} // No load more needed, all items are loaded at once
+                      hasMore={false}
                       type="charge"
                     />
                   </>

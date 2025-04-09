@@ -183,6 +183,7 @@ const BarChartDisplay = ({
 
   // Compute domain to accommodate negative & positive if in comparative mode
   let xAxis;
+  let yAxis;
 
   // Find maximum absolute value in the datasets
   const maxVal = Math.max(
@@ -192,52 +193,65 @@ const BarChartDisplay = ({
     0.25 // Minimum range to avoid empty charts
   );
 
-  console.log('Max Value:', maxVal);
-
+  // Prepare linear axis configuration based on domain config
+  let linearAxisConfig;
   if (domainConfig.type === 'fixed') {
     // Fixed domain configuration
-    xAxis = [
-      {
-        scaleType: 'linear' as const,
-        min: domainConfig.min,
-        max: domainConfig.max,
-        label: xAxisLabel,
-        labelStyle: {
-          fontSize: 14,
-          fontWeight: 600,
-        },
+    linearAxisConfig = {
+      scaleType: 'linear' as const,
+      min: domainConfig.min,
+      max: domainConfig.max,
+      label: xAxisLabel,
+      labelStyle: {
+        fontSize: 14,
+        fontWeight: 600,
       },
-    ];
+    };
   }
   else if (domainConfig.type === 'dynamic') {
     // Dynamic domain configuration with exponential distribution
     const dynamicDomain = calculateDynamicDomain(maxVal, domainConfig, viewMode === 'comparative');
-    console.log('Dynamic Domain:', dynamicDomain);
-    xAxis = [
-      {
-        scaleType: 'linear' as const,
-        min: dynamicDomain.min,
-        max: dynamicDomain.max,
-        label: xAxisLabel,
-        labelStyle: {
-          fontSize: 14,
-          fontWeight: 600,
-        },
+    linearAxisConfig = {
+      scaleType: 'linear' as const,
+      min: dynamicDomain.min,
+      max: dynamicDomain.max,
+      label: xAxisLabel,
+      labelStyle: {
+        fontSize: 14,
+        fontWeight: 600,
       },
-    ];
+    };
   }
-  else{
+  else {
     // Auto domain configuration
-    xAxis = [
-      {
-        scaleType: 'linear' as const,
-        label: xAxisLabel,
-        labelStyle: {
-          fontSize: 14,
-          fontWeight: 600,
-        },
+    linearAxisConfig = {
+      scaleType: 'linear' as const,
+      label: xAxisLabel,
+      labelStyle: {
+        fontSize: 14,
+        fontWeight: 600,
       },
-    ];
+    };
+  }
+
+  // Prepare band axis configuration
+  const bandAxisConfig = {
+    scaleType: 'band' as const,
+    data: chartData.labels,
+    tickLabelStyle: {
+      fontSize: 12,
+      padding: 4,
+      fontFamily: 'Inter',
+    },
+  };
+
+  // Swap axis configuration based on layout
+  if (layout === 'vertical') {
+    xAxis = [bandAxisConfig];
+    yAxis = [linearAxisConfig];
+  } else {
+    xAxis = [linearAxisConfig];
+    yAxis = [bandAxisConfig];
   }
 
   // Define slots to hide based on dataset count
@@ -253,21 +267,9 @@ const BarChartDisplay = ({
         viewMode === 'comparative' ? 'comparative-view' : 'objective-view'
       }`}
     >
-      {/* Removed the reference-line-container block per instructions */}
-
       <BarChart
         layout={layout}
-        yAxis={[
-          {
-            scaleType: 'band',
-            data: chartData.labels,
-            tickLabelStyle: {
-              fontSize: 12,
-              padding: 4,
-              fontFamily: 'Inter',
-            },
-          },
-        ]}
+        yAxis={yAxis}
         xAxis={xAxis}
         series={safeDatasets.map((dataset) => ({
           data: dataset.data,

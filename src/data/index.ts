@@ -5,10 +5,15 @@
  * including courts and judges information.
  */
 
-import { Court } from '@/types'
+import { Court, ChargeGroup } from '@/types'
   
 // Static data for courts
 export const courts: Court[] = [
+  { "id": 1, "name": "Attleboro District Court" },
+  { "id": 2, "name": "Ayer District Court" },
+  { "id": 3, "name": "Barnstable County" },
+  { "id": 4, "name": "Barnstable District Court" },
+  { "id": 5, "name": "Berkshire County" },
   { "id": 6, "name": "BMC Brighton" },
   { "id": 7, "name": "BMC Central" },
   { "id": 8, "name": "BMC Charlestown" },
@@ -17,13 +22,6 @@ export const courts: Court[] = [
   { "id": 11, "name": "BMC Roxbury" },
   { "id": 12, "name": "BMC South Boston" },
   { "id": 13, "name": "BMC West Roxbury" },
-
-  
-  /*{ "id": 1, "name": "Attleboro District Court" },
-  { "id": 2, "name": "Ayer District Court" },
-  { "id": 3, "name": "Barnstable County" },
-  { "id": 4, "name": "Barnstable District Court" },
-  { "id": 5, "name": "Berkshire County" },
   { "id": 14, "name": "Boston Housing Court" },
   { "id": 15, "name": "Boston Municipal Central Court" },
   { "id": 16, "name": "Bristol County" },
@@ -101,5 +99,47 @@ export const courts: Court[] = [
   { "id": 88, "name": "Woburn District Court" },
   { "id": 89, "name": "Worcester County" },
   { "id": 90, "name": "Worcester District Court" },
-  { "id": 91, "name": "Wrentham District Court" },*/
+  { "id": 91, "name": "Wrentham District Court" },
 ]
+
+export const chargeGroups: ChargeGroup[] = [
+  { id: 1, type: "title", name: "JURISDICTION AND EMBLEMS OF THE COMMONWEALTH, THE GENERAL COURT, STATUTES AND PUBLIC DOCUMENTS" },
+  { id: 6, type: "title", name: "EXECUTIVE AND ADMINISTRATIVE OFFICERS OF THE COMMONWEALTH" },
+  { id: 29, type: "title", name: "LAWS RELATING TO STATE OFFICERS" },
+  { id: 31, type: "title", name: "CIVIL SERVICE, RETIREMENTS AND PENSIONS" },
+  { id: 33, type: "title", name: "MILITIA" },
+  { id: 34, type: "title", name: "COUNTIES AND COUNTY OFFICERS" },
+  { id: 39, type: "title", name: "CITIES, TOWNS AND DISTRICTS" },
+  { id: 50, type: "title", name: "ELECTIONS" },
+  { id: 58, type: "title", name: "TAXATION" },
+  { id: 66, type: "title", name: "PUBLIC RECORDS" },
+  { id: 67, type: "title", name: "CERTAIN RELIGIOUS AND CHARITABLE MATTERS" },
+  { id: 69, type: "title", name: "EDUCATION" },
+  //{ id: 79, type: "title", name: "EMINENT DOMAIN AND BETTERMENTS" },
+  { id: 81, type: "title", name: "PUBLIC WAYS AND WORKS" },
+  { id: 93, type: "title", name: "REGULATION OF TRADE" },
+  { id: 111, type: "title", name: "PUBLIC HEALTH" },
+  { id: 115, type: "title", name: "PUBLIC WELFARE" },
+  { id: 124, type: "title", name: "PRISONS, IMPRISONMENT, PAROLES AND PARDONS" },
+  { id: 128, type: "title", name: "AGRICULTURE AND CONSERVATION" },
+  { id: 133, type: "title", name: "PUBLIC SAFETY AND GOOD ORDER" },
+  { id: 149, type: "title", name: "LABOR AND INDUSTRIES" },
+  { id: 155, type: "title", name: "CORPORATIONS" },
+  { id: 183, type: "title", name: "TITLE TO REAL PROPERTY" },
+  //{ id: 190, type: "title", name: "DESCENT AND DISTRIBUTION, WILLS, ESTATES OF DECEASED PERSONS AND ABSENTEES, GUARDIANSHIP, CONSERVATORSHIP AND TRUSTS" },
+  { id: 207, type: "title", name: "DOMESTIC RELATIONS" },
+  { id: 211, type: "title", name: "COURTS AND JUDICIAL OFFICERS" },
+  { id: 223, type: "title", name: "ACTIONS AND PROCEEDINGS THEREIN" },
+  //{ id: 237, type: "title", name: "REMEDIES RELATING TO REAL PROPERTY" },
+  { id: 246, type: "title", name: "CERTAIN WRITS AND PROCEEDINGS IN SPECIAL CASES" },
+  //{ id: 259, type: "title", name: "STATUTES OF FRAUDS AND LIMITATIONS" },
+  //{ id: 261, type: "title", name: "COSTS AND FEES" },
+  { id: 263, type: "title", name: "CRIMES AND PUNISHMENTS" },
+  { id: 275, type: "title", name: "PROCEEDINGS IN CRIMINAL CASES" },
+  /*{ id: 1, type: "chapter", name: "Chapter 1" },
+  { id: 2, type: "chapter", name: "Chapter 10" },
+  { id: 3, type: "chapter", name: "Chapter 100" },
+  { id: 4, type: "chapter", name: "Chapter 100A" },
+  { id: 5, type: "chapter", name: "Chapter 101" },
+  { id: 6, type: "chapter", name: "Chapter 102" },*/
+];
