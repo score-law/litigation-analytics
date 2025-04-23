@@ -6,19 +6,6 @@
  * graph sections, and interactive controls.
  */
 
-/* 
- * Results Page Styles
- *
- * This file contains styles for the litigation analytics results page.
- * It defines the layout and appearance of the tabbed interface, content cards,
- * graph sections, and interactive controls.
- */
-
-
-  .search-bar{
-    width: 50vw;
-  }
-
   header{
     display: flex;
     justify-content: space-between;
@@ -38,24 +25,9 @@
             width: 100px;
         }
     }
-
-    nav{
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-
-        ul{
-            list-style: none;
-
-            li{
-                position: relative;
-                display: inline-block;
-
-                >a{
-                    text-decoration: none;
-                }
-            }
-        }
+    
+    .search-bar{
+      width: 50vw;
     }
   }
 

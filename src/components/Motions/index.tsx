@@ -18,18 +18,70 @@ const OUTCOME_COLORS = {
   COMPARATIVE: "#72d99d", // Light Green for comparative
 };
 
-// Priority motions to show initially
-const PRIORITY_MOTIONS = [
-  'dismiss',
-  'suppress',
-  'discovery',
-  'bail',
-  'dangerousness',
-  'continue',
-  'funds',
-  'sequester'
-];
+// Motion types configuration with custom display names in priority order
+const MOTION_TYPES_CONFIG = {
+  'dismiss': 'Dismiss',
+  'suppress': 'Suppress', 
+  'discovery': 'Discovery',
+  'bail': 'Edit Bail (58a)',
+  'dangerousness': 'Dangerousness (58b)',
+  'continue': 'Continue',
+  'funds': 'Funds',
+  'sequester': 'Sequester',
+  'speedy': 'Speedy Trial',
+  'bill of particulars': 'Bill of Particulars',
+  'amend charge': 'Amend Charge',
+  'protect': 'Protect',
+  'uncharged conduct': 'Uncharged Conduct',
+  'nolle prosequi': 'Nolle Prosequi',
+  'withdraw': 'Withdraw',
+  'obtain': 'Obtain',
+  'travel': 'Travel',
+  'third party records': 'Third Party Records',
+  'virtual': 'Virtual',
+  'record-seal': 'Record Seal',
+  'record-medical': 'Record Medical',
+  'record-criminal': 'Record Criminal',
+  'other': 'Other',
+};
 
+/**
+ * Ensures all standard motion types from configuration are included in the dataset,
+ * adding empty entries with zero values for any missing motion types.
+ */
+const ensureAllMotionTypes = (motionData: MotionData[]): MotionData[] => {
+  // Create a map of existing motion types
+  const existingMotions = new Map<string, MotionData>();
+  motionData.forEach(motion => {
+    existingMotions.set(motion.type, motion);
+  });
+  
+  // Create a complete list with all configured motion types
+  const completeMotions: MotionData[] = [];
+  
+  // Add configured motion types first, creating empty ones if missing
+  Object.keys(MOTION_TYPES_CONFIG).forEach(motionType => {
+    if (existingMotions.has(motionType)) {
+      completeMotions.push(existingMotions.get(motionType)!);
+      existingMotions.delete(motionType);
+    } else {
+      // Create empty motion data for missing types
+      completeMotions.push({
+        type: motionType,
+        count: 0,
+        status: { granted: 0, denied: 0, other: 0 },
+        partyFiled: { granted: 0, denied: 0, other: 0 }
+      });
+    }
+  });
+  
+  // Add any remaining motions that weren't in the configuration
+  existingMotions.forEach(motion => {
+    completeMotions.push(motion);
+  });
+  
+  return completeMotions;
+};
 
 interface MotionsTabProps {
   data: MotionData[];
@@ -139,32 +191,36 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
       return { labels: [], datasets: [] };
     }
     
-    // Filter and order motions based on expansion state
-    let orderedData = [...data];
+    // Ensure all standard motion types are included
+    const completeData = ensureAllMotionTypes(data);
     
-    // Sort motions: priority motions first, in the specified order, then others alphabetically
-    orderedData.sort((a, b) => {
-      const aIndex = PRIORITY_MOTIONS.indexOf(a.type);
-      const bIndex = PRIORITY_MOTIONS.indexOf(b.type);
+    // Sort motions: configured motions first in config order, then others alphabetically
+    const sortedData = completeData.sort((a, b) => {
+      const aIndex = Object.keys(MOTION_TYPES_CONFIG).indexOf(a.type);
+      const bIndex = Object.keys(MOTION_TYPES_CONFIG).indexOf(b.type);
       
-      // If both are priority motions, sort by priority order
+      // If both are in the config, sort by config order
       if (aIndex !== -1 && bIndex !== -1) {
         return aIndex - bIndex;
       }
-      // If only a is priority, it comes first
+      // If only a is in config, it comes first
       if (aIndex !== -1) return -1;
-      // If only b is priority, it comes first
+      // If only b is in config, it comes first
       if (bIndex !== -1) return 1;
       // Otherwise sort alphabetically
       return a.type.localeCompare(b.type);
     });
     
-    // If not expanded, only show priority motions
-    if (!isExpanded) {
-      orderedData = orderedData.filter(motion => PRIORITY_MOTIONS.includes(motion.type));
-    }
+    // If not expanded, only show the first 8 motion types
+    const orderedData = isExpanded ? sortedData : sortedData.slice(0, 8);
     
-    const labels = orderedData.map(item => ((item.type).charAt(0).toUpperCase() + (item.type).slice(1)));
+    // Use custom display names from configuration or capitalize first letter as fallback
+    const labels = orderedData.map(item => {
+      if (item.type in MOTION_TYPES_CONFIG) {
+        return MOTION_TYPES_CONFIG[item.type as keyof typeof MOTION_TYPES_CONFIG];
+      }
+      return item.type.charAt(0).toUpperCase() + item.type.slice(1);
+    });
 
     // Handle comparative view using the clearer structure
     if (viewMode === 'comparative') {
@@ -279,7 +335,7 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
     );
   }
 
-  const hasMoreMotions = data.length > PRIORITY_MOTIONS.length;
+  const hasMoreMotions = data.length > 8;
 
   return (
     <div className="motions-container">
@@ -289,7 +345,7 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
           xAxisLabel={viewMode === 'comparative' ? 'Ratio of Motions Granted Relative to Average' : 'Number of Motions'}
           viewMode={viewMode}
           className={isExpanded ? 'expanded' : ''}
-          margin={{ top: 30, bottom: 50, left: 120, right: 120 }}
+          margin={{ top: 30, bottom: 50, left: 150, right: 80 }}
           domainConfig={
             viewMode === 'objective' 
               ? { type: 'auto' } // Keep fixed scale for objective

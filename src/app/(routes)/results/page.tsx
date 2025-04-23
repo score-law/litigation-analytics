@@ -497,22 +497,9 @@ const ResultsPage = () => {
         </Box>
       ) : (
         <div className="results-container">
-          <Box className="sidebar-container">
-            
-          </Box>
           <Box className="tab-container">
             <TabContext value={activeTab}>
               <Box className="results-tabs-container">
-                <VariabilityDisplay
-                  loading={loading}
-                  totalCases={totalCases}
-                  data={data}
-                  activeTab={activeTab}
-                  dispositionsTrialType={dispositionsTrialType}
-                  sentenceDisplayMode={sentenceDisplayMode}
-                  selectedSentenceType={selectedSentenceType}
-                  bailDisplayMode={bailDisplayMode}
-                />
                 <Tabs
                   value={activeTab}
                   onChange={handleTabChange}
@@ -541,6 +528,16 @@ const ResultsPage = () => {
                     className="results-tab"
                   />
                 </Tabs>
+                <VariabilityDisplay
+                  loading={loading}
+                  totalCases={totalCases}
+                  data={data}
+                  activeTab={activeTab}
+                  dispositionsTrialType={dispositionsTrialType}
+                  sentenceDisplayMode={sentenceDisplayMode}
+                  selectedSentenceType={selectedSentenceType}
+                  bailDisplayMode={bailDisplayMode}
+                />
               </Box>
               
               <TabPanel value="dispositions" className="results-tab-panel">
