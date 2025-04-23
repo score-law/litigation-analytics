@@ -5,7 +5,7 @@
  * It shows the percentage of each sentence type and the average days/costs.
  * In severity mode, it shows the distribution of sentence buckets.
  */
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Box, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { SentenceData } from '@/types';
 import { ViewMode } from '@/types';
@@ -26,12 +26,11 @@ interface SentencesTabProps {
   data: SentenceData[];
   viewMode: ViewMode;
   displayMode: string;
+  selectedSentenceType: string;
+  onSelectedSentenceTypeChange: (sentenceType: string) => void;
 }
 
-const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
-  // Add state for selected sentence type (default to Fee/Fine)
-  const [selectedSentenceType, setSelectedSentenceType] = useState<string>('Fine');
-
+const SentencesTab = ({ data, viewMode, displayMode, selectedSentenceType, onSelectedSentenceTypeChange }: SentencesTabProps) => {
   // Create frequency formatter for percentage values
   const frequencyValueFormatter = (value: number | null) => {
     if (value === null) return '';
@@ -109,7 +108,7 @@ const SentencesTab = ({ data, viewMode, displayMode }: SentencesTabProps) => {
   // Handle sentence type toggle change
   const handleSentenceTypeChange = (event: React.MouseEvent<HTMLElement>, newType: string) => {
     if (newType !== null) {
-      setSelectedSentenceType(newType);
+      onSelectedSentenceTypeChange(newType);
     }
   };
 

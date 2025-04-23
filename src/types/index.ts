@@ -89,6 +89,21 @@ export interface MotionData {
   };
 }
 
+export type SelectionType = 'Courts' | 'Judges' | 'Charges' | 'Charge Groups';
+
+export interface SearchResultItem {
+  id: number;
+  name: string;
+  total_case_dispositions: number;
+  type?: SelectionType; // Optional type for charge groups
+}
+
+export interface Selection {
+  value: SearchResultItem;
+  type: SelectionType;
+  selected?: boolean;
+}
+
 // Possible charge groupings
 export type chargeGroup = 'charge' | 'chapter' | 'title'
 

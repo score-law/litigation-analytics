@@ -8,24 +8,22 @@
  * horizontal bar graphs. Each tab provides interactive visualizations tailored 
  * to different aspects of court case data.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { motion } from "framer-motion";
 
-import { Box, Tab, Tabs, Typography, Paper, CircularProgress, Accordion, AccordionSummary, AccordionDetails, TextField, Chip, IconButton } from '@mui/material';
+import Link from 'next/link';
+import Image from 'next/image';
+import Logo from '@/../public/logo.svg'
+
+import { Box, Tab, Tabs, Typography, Paper, CircularProgress } from '@mui/material';
 import { TabContext, TabPanel } from '@mui/lab';
 
-import ExpandMore from '@mui/icons-material/ExpandMore';
-import CloseIcon from '@mui/icons-material/Close';
-import GavelIcon from '@mui/icons-material/Gavel';
-import CourtIcon from '@mui/icons-material/AccountBalance';
-import ChargeIcon from '@mui/icons-material/Person4';
-import ChargeGroupsIcon from '@mui/icons-material/Groups2';
-
-import { courts, chargeGroups } from '@/data';
-import { SearchResultData, ViewMode, chargeGroup } from '@/types';
+import { SearchResultData, ViewMode, Selection } from '@/types';
 
 import { calculateComparativeDispositionsData, calculateComparativeSentencesData, calculateComparativeBailData, calculateComparativeMotionsData } from '@/utils/dataComparators';
 import { transformApiResponseToSearchResultData } from '@/utils/dataTransformers';
+import { encodeSelectionsToBase64, decodeSelectionsFromBase64 } from '@/utils/paramCoding';
 
 import DispositionsTab from '@/components/Dispositions';
 import SentencesTab from '@/components/Sentences';
@@ -33,7 +31,8 @@ import BailTab from '@/components/Bail';
 import MotionsTab from '@/components/Motions';
 import ViewModeToggle from '@/components/ViewModeToggle';
 import CategoryFilter from '@/components/CategoryFilter';
-import SelectionList from '@/components/SelectionList';
+import SearchBar from '@/components/SearchBar';
+import VariabilityDisplay from '@/components/VariabilityDisplay';
 
 import './styles.scss';
 
@@ -44,30 +43,27 @@ const ResultsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalCases, setTotalCases] = useState<number>(0);
+
+  // --- Loading Bar State ---
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [showLoadingBar, setShowLoadingBar] = useState(false);
+  const loadingBarTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const searchParams = useSearchParams();
   
-  // State variables for filters (primary source of truth)
-  const [selectedCourtId, setSelectedCourtId] = useState<number>(
-    parseInt(searchParams.get('courtId') || '0')
-  );
-  const [selectedJudgeId, setSelectedJudgeId] = useState<number>(
-    parseInt(searchParams.get('judgeId') || '0')
-  );
-  const [selectedChargeId, setSelectedChargeId] = useState<number>(
-    parseInt(searchParams.get('chargeId') || '0')
-  );
+  // This is our single source of truth
+  const [currentSelections, setCurrentSelections] = useState<Array<Selection | null>>([null, null]);
   
-  // tracking charge name
-  const [chargeName, setChargeName] = useState<string>('');
-  const [judgeName, setJudgeName] = useState<string>('');
-  
-  // State to track the parameters used in the final query
-  const [finalParams, setFinalParams] = useState<{
+  // Use ref for parameter tracking to avoid infinite loop
+  const finalParamsRef = useRef<{
     courtId: number;
     judgeId: number;
     chargeId: number;
   } | null>(null);
+  
+  // Track if selections have been initialized from URL
+  const initializedRef = useRef<boolean>(false);
   
   // Add view mode state for each tab (independent toggles)
   const [dispositionsViewMode, setDispositionsViewMode] = useState<ViewMode>('objective');
@@ -80,46 +76,9 @@ const ResultsPage = () => {
   const [sentenceDisplayMode, setSentenceDisplayMode] = useState<string>("frequency");
   const [bailDisplayMode, setBailDisplayMode] = useState<string>("frequency");
   const [motionsPartyType, setMotionsPartyType] = useState<string>("all");
+
+  const [selectedSentenceType, setSelectedSentenceType] = useState<string>('Fine');
   
-  // State for accordion expansion
-  const [courtAccordionExpanded, setCourtAccordionExpanded] = useState<boolean>(false);
-  const [judgeAccordionExpanded, setJudgeAccordionExpanded] = useState<boolean>(false);
-  const [chargeAccordionExpanded, setChargeAccordionExpanded] = useState<boolean>(false);
-
-  // State for search terms
-  const [courtSearchTerm, setCourtSearchTerm] = useState('');
-  const [judgeSearchTerm, setJudgeSearchTerm] = useState('');
-  const [chargeSearchTerm, setChargeSearchTerm] = useState('');
-
-  // Added debounced charge search term state
-  const [debouncedChargeSearchTerm, setDebouncedChargeSearchTerm] = useState('');
-  // Added typing state for loading indicator
-  const [isTypingCharge, setIsTypingCharge] = useState(false);
-
-  const [debouncedJudgeSearchTerm, setDebouncedJudgeSearchTerm] = useState('');
-  const [isTypingJudge, setIsTypingJudge] = useState(false);
-
-  // New state for selection lists
-  const [visibleCourts, setVisibleCourts] = useState<Array<{ id: number; name: string }>>([]);
-  const [visibleJudges, setVisibleJudges] = useState<Array<{ id: number; name: string }>>([]);
-  const [visibleCharges, setVisibleCharges] = useState<Array<{ id: number; name: string }>>([]);
-  
-  // State for loading indicators
-  const [loadingCourts, setLoadingCourts] = useState<boolean>(false);
-  const [loadingJudges, setLoadingJudges] = useState<boolean>(false);
-  const [loadingCharges, setLoadingCharges] = useState<boolean>(false);
-  
-  // State for loading more items
-  const [hasMoreCourts, setHasMoreCourts] = useState<boolean>(true);
-  const [hasMoreJudges, setHasMoreJudges] = useState<boolean>(true);
-  const [hasMoreCharges, setHasMoreCharges] = useState<boolean>(true);
-
-  // Charge Group Accordion states
-  const [chargeGroupAccordionExpanded, setChargeGroupAccordionExpanded] = useState<boolean>(false);
-  const [chargeGroupSearchTerm, setChargeGroupSearchTerm] = useState('');
-  const [debouncedChargeGroupSearchTerm, setDebouncedChargeGroupSearchTerm] = useState('');
-  const [isTypingChargeGroup, setIsTypingChargeGroup] = useState(false);
-
   // Define filter options
   const TRIAL_TYPE_OPTIONS = [
     { value: "all", label: "All Trials" },
@@ -132,7 +91,6 @@ const ResultsPage = () => {
     { value: "severity", label: "Severity" }
   ];
 
-  // Add BAIL_DISPLAY_OPTIONS constant
   const BAIL_DISPLAY_OPTIONS = [
     { value: "frequency", label: "Frequency" },
     { value: "severity", label: "Severity" }
@@ -144,30 +102,65 @@ const ResultsPage = () => {
     { value: "defense", label: "Defense" }
   ];
 
-  const filteredChargeGroups = chargeGroups.map(group => {
-    return {
-      id: (group.type == "chapter" ? group.id + 1000 : group.id),
-      name: group.name,
-      type: group.type,
-    };
-  })
-  
-  // Targeted data fetching function with minimal state updates
-  const fetchFilteredData = useCallback(async (court: number, judge: number, charge: number) => {
-    try {
-      const params = new URLSearchParams();
-      params.set('courtId', court.toString());
-      params.set('judgeId', judge.toString());
-      params.set('chargeId', charge.toString());
+  // Utility function to extract IDs from selections
+  const getIdsFromSelections = useCallback(() => {
+    let courtId = 0, judgeId = 0, chargeId = 0;
+    
+    currentSelections.forEach(selection => {
+      if (!selection?.type || !selection?.value) return;
       
+      switch(selection.type) {
+        case 'Courts':
+          courtId = selection.value.id;
+          break;
+        case 'Judges':
+          judgeId = selection.value.id;
+          break;
+        case 'Charges':
+        case 'Charge Groups':
+          chargeId = selection.value.id;
+          break;
+      }
+    });
+    
+    return { courtId, judgeId, chargeId };
+  }, [currentSelections]);
+  
+  const parseSelectionsFromUrl = useCallback(() => {
+    const selectionsParam = searchParams.get('selections');
+    if (!selectionsParam) {
+      console.log('No selections parameter found in URL');
+      return [null, null];
+    }
+    return decodeSelectionsFromBase64(selectionsParam);
+  }, [searchParams]);
+
+  // Targeted data fetching function using ref
+  const fetchFilteredData = useCallback(async () => {
+    try {
+      const { courtId, judgeId, chargeId } = getIdsFromSelections();
+  
+      // Only show loading bar if initial load is complete
+      if (initialLoadComplete) {
+        setShowLoadingBar(true);
+        setProgress(0);
+        setTimeout(() => setProgress(30), 80);
+      }
+  
+      const params = new URLSearchParams();
+      params.set('courtId', courtId.toString());
+      params.set('judgeId', judgeId.toString());
+      params.set('chargeId', chargeId.toString());
+  
       const response = await fetch(`/api/specification?${params.toString()}`);
       if (!response.ok) {
         throw new Error('Failed to fetch data');
       }
-      
+  
+      if (initialLoadComplete) setProgress(60);
+  
       const responseData = await response.json();
-
-      // Extract total cases from the first specification record or set to 0 if none
+  
       if (responseData.specification && responseData.specification.length > 0) {
         for (const spec of responseData.specification) {
           if (spec.trial_category == 'any') {
@@ -178,279 +171,100 @@ const ResultsPage = () => {
       } else {
         setTotalCases(0);
       }
-      
-      // Transform both API responses
+  
       const transformedData = transformApiResponseToSearchResultData(responseData);
-
       setData(transformedData);
-
-      if (charge != finalParams?.chargeId) {
-        let averageApiUrl;
-        if (charge == 0 || charge != 0 && judge == 0 && court == 0) {
-          averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=0`;
+  
+      const prevParams = finalParamsRef.current;
+      const currentParams = { courtId, judgeId, chargeId };
+  
+      if (!prevParams || chargeId !== prevParams.chargeId) {
+        let averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=`;
+  
+        if (chargeId === 0 || (chargeId === 0 && judgeId === 0 && courtId === 0)) {
+          averageApiUrl += '0';
+        } else {
+          averageApiUrl += chargeId.toString();
         }
-        else {
-          averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=${
-            charge.toString()
-          }`;
-        }
-        
-        // Fetch the average data
+  
         const averageResponse = await fetch(averageApiUrl);
-        
-        if (!averageResponse.ok) {
-          throw new Error(`API error: ${averageResponse.status}`);
-        }
-        
+        if (!averageResponse.ok) throw new Error('Failed to fetch average data');
+  
+        if (initialLoadComplete) setProgress(90);
+  
         const averageApiData = await averageResponse.json();
-
-        console.log('Average API response:', averageApiData);
-        
-        // Transform both API responses
         const transformedAverageData = transformApiResponseToSearchResultData(averageApiData);
-        
         setAverageData(transformedAverageData);
+      } else {
+        if (initialLoadComplete) setProgress(90);
       }
-
-      if (loading) {
-        setLoading(false)
+  
+      finalParamsRef.current = currentParams;
+      setLoading(false);
+  
+      // Always animate to 100% before hiding, with a 0.15s linger at full width
+      if (initialLoadComplete) {
+        setProgress(100);
+        if (loadingBarTimeoutRef.current) clearTimeout(loadingBarTimeoutRef.current);
+        loadingBarTimeoutRef.current = setTimeout(() => {
+          setShowLoadingBar(false);
+          setProgress(0);
+        }, 150); // 0.15s linger at full width
+      } else {
+        setInitialLoadComplete(true);
       }
-
-      // Update finalParams for reference
-      setFinalParams({
-        courtId: court,
-        judgeId: judge,
-        chargeId: charge,
-      });
     } catch (error) {
       console.error('Error fetching data:', error);
       setError('Failed to fetch data. Please try again.');
+      setLoading(false);
+      // On error, animate to 100% and hide loading bar after 0.15s
+      if (initialLoadComplete) {
+        setProgress(100);
+        if (loadingBarTimeoutRef.current) clearTimeout(loadingBarTimeoutRef.current);
+        loadingBarTimeoutRef.current = setTimeout(() => {
+          setShowLoadingBar(false);
+          setProgress(0);
+        }, 150);
+      }
     }
-  }, [finalParams]);
+  }, [getIdsFromSelections, initialLoadComplete]);
 
-  // Function to update URL without triggering re-fetches
   const syncUrlWithState = useCallback(() => {
+    const encoded = encodeSelectionsToBase64(currentSelections);
     const newParams = new URLSearchParams();
-    newParams.set('courtId', selectedCourtId.toString());
-    newParams.set('judgeId', selectedJudgeId.toString());
-    newParams.set('chargeId', selectedChargeId.toString());
-    
+    if (encoded) {
+      newParams.set('selections', encoded);
+    }
     const newUrl = `${window.location.pathname}?${newParams.toString()}`;
     window.history.replaceState({}, '', newUrl);
-  }, [selectedCourtId, selectedJudgeId, selectedChargeId]);
+  }, [currentSelections]);
 
-  // Sync URL with state whenever selection changes
+  // Initialize selections from URL parameters when searchParams change
   useEffect(() => {
-    fetchFilteredData(selectedCourtId, selectedJudgeId, selectedChargeId);
+    // Get selections directly from URL parameter
+    const initialSelections = parseSelectionsFromUrl();
+    setCurrentSelections(initialSelections);
+    initializedRef.current = true;
+  }, [parseSelectionsFromUrl]);
+
+  // Fetch data and sync URL when selections change
+  useEffect(() => {
+    // Skip if not initialized yet
+    if (!initializedRef.current) return;
+    
+    // Skip initial render with empty selections
+    if (currentSelections.every(sel => sel === null)) return;
+    
+    fetchFilteredData();
     syncUrlWithState();
-  }, [selectedCourtId, selectedJudgeId, selectedChargeId, syncUrlWithState]);
-  
-  // Debounce effect for charge search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedChargeSearchTerm(chargeSearchTerm);
-      setIsTypingCharge(false);
-    }, 500); // 500ms debounce delay
-    
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [chargeSearchTerm]);
+  }, [currentSelections, fetchFilteredData, syncUrlWithState]);
 
-  // Add debounce effect for judge search (similar to charge search)
+  // Reset loading bar if a new fetch is triggered before previous completes
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedJudgeSearchTerm(judgeSearchTerm);
-      setIsTypingJudge(false);
-    }, 500); // 500ms debounce delay
-    
     return () => {
-      clearTimeout(timer);
+      if (loadingBarTimeoutRef.current) clearTimeout(loadingBarTimeoutRef.current);
     };
-  }, [judgeSearchTerm]);
-  
-  // Initialize court options with real data
-  useEffect(() => {
-    // Load first 20 courts
-    setVisibleCourts(courts.slice(0, 20));
-    setHasMoreCourts(courts.length > 20);
   }, []);
-
-  // Updated to use debouncedChargeSearchTerm instead of chargeSearchTerm
-  useEffect(() => {
-    const fetchInitialCharges = async () => {
-      setLoadingCharges(true);
-      try {
-        // API call to get first 20 charges
-        const response = await fetch(
-          `/api/charges?limit=20&offset=0${debouncedChargeSearchTerm ? `&search=${encodeURIComponent(debouncedChargeSearchTerm)}` : ''}`
-        );
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch charges: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setVisibleCharges(data.charges);
-        setHasMoreCharges(data.total > data.charges.length);
-      } catch (error) {
-        console.error("Failed to fetch charges:", error);
-      } finally {
-        setLoadingCharges(false);
-      }
-    };
-    
-    fetchInitialCharges();
-  }, [debouncedChargeSearchTerm]);
-
-  // Update the useEffect for initial judge loading to use the API
-  useEffect(() => {
-    const fetchInitialJudges = async () => {
-      setLoadingJudges(true);
-      try {
-        // API call to get first 20 judges
-        const response = await fetch(
-          `/api/judges?limit=20&offset=0${debouncedJudgeSearchTerm ? `&search=${encodeURIComponent(debouncedJudgeSearchTerm)}` : ''}`
-        );
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch judges: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setVisibleJudges(data.judges);
-        setHasMoreJudges(data.total > data.judges.length);
-      } catch (error) {
-        console.error("Failed to fetch judges:", error);
-      } finally {
-        setLoadingJudges(false);
-      }
-    };
-    
-    fetchInitialJudges();
-  }, [debouncedJudgeSearchTerm]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedChargeGroupSearchTerm(chargeGroupSearchTerm);
-      setIsTypingChargeGroup(false);
-    }, 500); // 500ms debounce delay
-    
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [chargeGroupSearchTerm]);
-
-  // Handler for loading more courts with real pagination
-  const loadMoreCourts = () => {
-    setLoadingCourts(true);
-    
-    // Short timeout to prevent UI freezing
-    setTimeout(() => {
-      const currentLength = visibleCourts.length;
-      const nextItems = courts.slice(currentLength, currentLength + 20);
-      
-      setVisibleCourts(prev => [...prev, ...nextItems]);
-      setHasMoreCourts(currentLength + nextItems.length < courts.length);
-      setLoadingCourts(false);
-    }, 100);
-  };
-
-  // Handler for loading more judges with real pagination
-  const loadMoreJudges = async () => {
-    setLoadingJudges(true);
-    
-    try {
-      const currentLength = visibleJudges.length;
-      const response = await fetch(
-        `/api/judges?limit=20&offset=${currentLength}${debouncedJudgeSearchTerm ? `&search=${encodeURIComponent(debouncedJudgeSearchTerm)}` : ''}`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch more judges: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setVisibleJudges(prev => [...prev, ...data.judges]);
-      setHasMoreJudges(currentLength + data.judges.length < data.total);
-    } catch (error) {
-      console.error("Failed to fetch more judges:", error);
-    } finally {
-      setLoadingJudges(false);
-    }
-  };
-
-  // Handler for loading more charges with API pagination
-  const loadMoreCharges = async () => {
-    setLoadingCharges(true);
-    
-    try {
-      const currentLength = visibleCharges.length;
-      const response = await fetch(
-        `/api/charges?limit=20&offset=${currentLength}${debouncedChargeSearchTerm ? `&search=${encodeURIComponent(debouncedChargeSearchTerm)}` : ''}`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch more charges: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setVisibleCharges(prev => [...prev, ...data.charges]);
-      setHasMoreCharges(currentLength + data.charges.length < data.total);
-    } catch (error) {
-      console.error("Failed to fetch more charges:", error);
-    } finally {
-      setLoadingCharges(false);
-    }
-  };
-
-
-
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
-    setActiveTab(newValue);
-  };
-
-
-
-
-  // Handle charge search input change
-  const handleChargeSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setChargeSearchTerm(e.target.value);
-    setIsTypingCharge(true);
-  };
-
-  const handleJudgeSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setJudgeSearchTerm(e.target.value);
-    setIsTypingJudge(true);
-  };
-
-  const handleChargeGroupSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setChargeGroupSearchTerm(e.target.value);
-    setIsTypingChargeGroup(true);
-  };
-
-
-
-  // Handler functions for accordion toggling
-  const handleCourtAccordionChange = (event: React.SyntheticEvent, isExpanded: boolean) => {
-    setCourtAccordionExpanded(isExpanded);
-  };
-
-  const handleJudgeAccordionChange = (event: React.SyntheticEvent, isExpanded: boolean) => {
-    setJudgeAccordionExpanded(isExpanded);
-  };
-
-  const handleChargeAccordionChange = (event: React.SyntheticEvent, isExpanded: boolean) => {
-    setChargeAccordionExpanded(isExpanded);
-  };
-
-  const handleChargeGroupAccordionChange = (event: React.SyntheticEvent, isExpanded: boolean) => {
-    setChargeGroupAccordionExpanded(isExpanded);
-  };
-
-
-
   
   // Add handlers for view mode changes
   const handleDispositionsViewModeChange = (newMode: ViewMode) => {
@@ -485,32 +299,13 @@ const ResultsPage = () => {
   const handleMotionsPartyTypeChange = (value: string) => {
     setMotionsPartyType(value);
   };
-  
-  // Handler for court selection
-  const handleCourtSelect = (id: number) => {
-    setSelectedCourtId(id);
+
+  const handleSelectedSentenceTypeChange = (value: string) => {
+    setSelectedSentenceType(value);
   };
 
-  // Handler for judge selection
-  const handleJudgeSelect = (id: number) => {
-    setSelectedJudgeId(id);
-  };
-
-  // Handler for charge selection
-  const handleChargeSelect = (id: number) => {
-    setSelectedChargeId(id);
-  };
-
-  const handleChargeGroupSelect = (id: number) => {
-    const selectedItem = filteredChargeGroups.find(item => item.id === id);
-    
-    if (selectedItem) {
-      // Update selected ID and name
-      setSelectedChargeId(id);
-      
-      // Clear charge selection for mutual exclusivity
-      setChargeName('');
-    }
+  const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
+    setActiveTab(newValue);
   };
   
   // Helper function to get the appropriate data based on view mode
@@ -551,63 +346,147 @@ const ResultsPage = () => {
     }
   };
 
-  // Track charge name when selectedChargeId changes
-  useEffect(() => {
-    if (selectedChargeId === 0) {
-      setChargeName('');
-      return;
-    }
-    
-    const selectedCharge = visibleCharges.find(charge => charge.id === (selectedChargeId - 2000));
-    if (selectedCharge) {
-      setChargeName(selectedCharge.name);
-    } else {
-      // If not found in the visible charges, fetch it
-      const fetchChargeName = async () => {
-        try {
-          const response = await fetch(`/api/charges/${selectedChargeId}`);
-          if (response.ok) {
-            const data = await response.json();
-            setChargeName(data.name);
-          }
-        } catch (error) {
-          console.error("Error fetching charge name:", error);
-        }
+  // Utility function to determine variability level and color
+  const getVariabilityInfo = (caseCount: number) => {
+    if (caseCount < 100) {
+      return { 
+        category: 'extreme',
+        label: 'Extreme Variability',
+        color: '#e53e3e' // Red
       };
-      
-      fetchChargeName();
+    } else if (caseCount < 500) {
+      return { 
+        category: 'high',
+        label: 'High Variability',
+        color: '#dd6b20' // Orange
+      };
+    } else if (caseCount < 1000) {
+      return { 
+        category: 'mild',
+        label: 'Mild Variability',
+        color: '#d69e2e' // Yellow
+      };
+    } else {
+      return { 
+        category: 'low',
+        label: 'Low Variability',
+        color: '#38a169' // Green
+      };
     }
-  }, [selectedChargeId, visibleCharges])
+  };
 
-  useEffect(() => {
-    if (selectedJudgeId === 0) {
-      setJudgeName('');
-      return;
+  // Non-linear mapping function that converts case counts to bar width percentages
+  const calculateExponentialBarWidth = (caseCount: number) => {
+    // Define the thresholds and their corresponding percentages
+    const thresholds = [
+      { count: 0, percentage: 0 },
+      { count: 100, percentage: 20 },
+      { count: 500, percentage: 50 },
+      { count: 1000, percentage: 80 },
+      { count: 3000, percentage: 100 }
+    ];
+    
+    // Find the correct segment
+    let i = 0;
+    while (i < thresholds.length - 1 && caseCount > thresholds[i + 1].count) {
+      i++;
     }
     
-    const selectedJudge = visibleJudges.find(judge => judge.id === selectedJudgeId);
-    if (selectedJudge) {
-      setJudgeName(selectedJudge.name);
-    } else {
-      // If not found in the visible judges, fetch it
-      const fetchJudgeName = async () => {
-        try {
-          const response = await fetch(`/api/judges?judgeId=${selectedJudgeId}`);
-          if (response.ok) {
-            const data = await response.json();
-            setJudgeName(data.name);
-          }
-        } catch (error) {
-          console.error("Error fetching judge name:", error);
-        }
-      };
-      
-      fetchJudgeName();
+    // If we're at the maximum threshold or beyond
+    if (i === thresholds.length - 1) {
+      return thresholds[i].percentage;
     }
-  }, [selectedJudgeId, visibleJudges]);
+    
+    // Calculate where we are within this segment (0-1)
+    const segmentStart = thresholds[i].count;
+    const segmentEnd = thresholds[i + 1].count;
+    const segmentRange = segmentEnd - segmentStart;
+    const positionInSegment = caseCount - segmentStart;
+    const normalizedPosition = positionInSegment / segmentRange;
+    
+    // Apply exponential curve to this segment (1-e^(-3x) gives a nice curve)
+    // Lambda value of 3 gives a reasonable curve shape
+    const lambda = 3;
+    const exponentialFactor = 1 - Math.exp(-lambda * normalizedPosition);
+    
+    // Calculate the percentage based on segment bounds and exponential factor
+    const startPercentage = thresholds[i].percentage;
+    const endPercentage = thresholds[i + 1].percentage;
+    const percentageRange = endPercentage - startPercentage;
+    
+    return startPercentage + percentageRange * exponentialFactor;
+  };
+
+  // Calculate width percentage for the bar using exponential distribution
+  const calculateBarWidth = (caseCount: number) => {
+    return calculateExponentialBarWidth(caseCount);
+  };
+  
+  // Render variability display with bar gauge
+  const renderVariabilityDisplay = () => {
+    if (loading) {
+      return (
+        <div className="variability-display">
+          <div className="variability-text-row">
+            <span className="case-count">Loading...</span>
+          </div>
+          <div className="variability-bar-container">
+            <div className="threshold-markers">
+              <div className="marker marker-100"></div>
+              <div className="marker marker-500"></div>
+              <div className="marker marker-1000"></div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    const { category, label, color } = getVariabilityInfo(totalCases);
+    const barWidth = calculateBarWidth(totalCases);
+    
+    return (
+      <div className="variability-display">
+        <div className="variability-text-row">
+          <span className="case-count">{totalCases.toLocaleString()}</span>
+          <span className="case-label">Total Cases</span>
+          <span className={`variability-category ${category}`}>{label}</span>
+        </div>
+        <div className="variability-bar-container">
+          <div className="threshold-markers">
+            <div className="marker marker-100"></div>
+            <div className="marker marker-500"></div>
+            <div className="marker marker-1000"></div>
+          </div>
+          <motion.div 
+            className={`variability-bar-fill ${category}`}
+            initial={{ width: 0 }}
+            animate={{ width: `${barWidth}%` }}
+            transition={{ duration: 0.5 }}
+          />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="results-page-container">
+      <header>
+        <Link href="/" className="logo">
+          <Image src={Logo} alt="Logo" />
+        </Link>
+        <div className="search-bar-wrapper">
+          <SearchBar 
+            selections={currentSelections} 
+            onSelectionsChange={setCurrentSelections}
+          />
+        </div>
+      </header>
+      {showLoadingBar && (
+        <div
+          className={`results-loading-bar${progress === 100 ? ' results-loading-bar--hide' : ''}`}
+          style={{ width: `${progress}%`, background: 'var(--accent-main)' }}
+        />
+      )}
       {loading ? (
         <Box className="loading-container">
           <CircularProgress sx={{ color: 'var(--accent-main)' }} />
@@ -618,372 +497,9 @@ const ResultsPage = () => {
         </Box>
       ) : (
         <div className="results-container">
-          {/* Court Accordion */}
-          <Box className="filter-container">
-            <Typography variant="h5" className="filter-title">
-              Filter by Category
-            </Typography>
-            
-            {/* Court Accordion */}
-            <Accordion 
-              expanded={courtAccordionExpanded}
-              onChange={handleCourtAccordionChange}
-              className="filter-accordion"
-            >
-              <AccordionSummary
-                expandIcon={<ExpandMore className="custom-expand-icon" />}
-                aria-controls="court-filter-content"
-                id="court-filter-header"
-                sx={{
-                  display: 'grid',
-                  gridTemplateAreas: `
-                    "title expandIcon"
-                    "selection selection"
-                  `,
-                  gridTemplateColumns: '1fr auto',
-                  alignItems: 'start',
-                  '& .MuiAccordionSummary-content': {
-                    display: 'contents',
-                  }
-                }}
-              >
-                <Typography className='accordion-title'>
-                  <CourtIcon fontSize="small" className='icon' />
-                  Court
-                </Typography>
-                
-                {selectedCourtId !== 0 && (
-                  <Box 
-                    onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
-                  >
-                    <Typography>
-                      {visibleCourts.find(c => c.id === selectedCourtId)?.name || 'Selected Court'}
-                    </Typography>
-                    <IconButton 
-                      className='delete-icon'
-                      size="small" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCourtSelect(0);
-                      }}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                )}
-              </AccordionSummary>
-              <AccordionDetails>
-                {courtAccordionExpanded && (
-                  <>
-                    <TextField 
-                      label="Search Courts"
-                      variant="outlined"
-                      fullWidth
-                      size="small"
-                      value={courtSearchTerm}
-                      onChange={(e) => setCourtSearchTerm(e.target.value)}
-                      sx={{
-                        mt: 0,
-                        mb: 0,
-                        '& .MuiOutlinedInput-root': {
-                          borderBottomLeftRadius: 0,
-                          borderBottomRightRadius: 0,
-                        }
-                      }}
-                    />
-                    <SelectionList
-                      items={visibleCourts.filter(court => 
-                        court.name.toLowerCase().includes(courtSearchTerm.toLowerCase()) && 
-                        court.id !== selectedCourtId
-                      )}
-                      selectedId={finalParams?.courtId || 0}
-                      onSelect={handleCourtSelect}
-                      searchTerm={courtSearchTerm}
-                      loading={loadingCourts}
-                      loadMore={loadMoreCourts}
-                      hasMore={hasMoreCourts}
-                      type="court"
-                    />
-                  </>
-                )}
-              </AccordionDetails>
-            </Accordion>
-            
-            {/* Judge Accordion */}
-            <Accordion 
-              expanded={judgeAccordionExpanded}
-              onChange={handleJudgeAccordionChange}
-              className="filter-accordion"
-            >
-              <AccordionSummary 
-                expandIcon={<ExpandMore className="custom-expand-icon" />}
-                aria-controls="judge-filter-content"
-                id="judge-filter-header"
-                sx={{
-                  display: 'grid',
-                  gridTemplateAreas: `
-                    "title expandIcon"
-                    "selection selection"
-                  `,
-                  gridTemplateColumns: '1fr auto',
-                  alignItems: 'start',
-                  '& .MuiAccordionSummary-content': {
-                    display: 'contents',
-                  }
-                }}
-              >
-                <Typography className='accordion-title'>
-                  <GavelIcon fontSize="small" className='icon' />
-                  Judge
-                </Typography>
-                
-                {selectedJudgeId !== 0 && (
-                  <Box 
-                    onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
-                  >
-                    <Typography>
-                      {judgeName || 'Selected Judge'}
-                    </Typography>
-                    <IconButton 
-                      className='delete-icon'
-                      size="small" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleJudgeSelect(0);
-                      }}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                )}
-              </AccordionSummary>
-              <AccordionDetails>
-                {judgeAccordionExpanded && (
-                  <>
-                    <TextField 
-                      label="Search Judges"
-                      variant="outlined"
-                      fullWidth
-                      size="small"
-                      value={judgeSearchTerm}
-                      onChange={handleJudgeSearch}
-                      InputProps={{
-                        endAdornment: isTypingJudge ? <CircularProgress size={20} /> : null
-                      }}
-                      sx={{
-                        mt: 0,
-                        mb: 0,
-                        '& .MuiOutlinedInput-root': {
-                          borderBottomLeftRadius: 0,
-                          borderBottomRightRadius: 0,
-                        }
-                      }}
-                    />
-                    <SelectionList
-                      items={visibleJudges.filter(judge => 
-                        judge.name.toLowerCase().includes(judgeSearchTerm.toLowerCase()) && 
-                        judge.id !== selectedJudgeId
-                      )}
-                      selectedId={finalParams?.judgeId || 0}
-                      onSelect={handleJudgeSelect}
-                      searchTerm={judgeSearchTerm}
-                      loading={loadingJudges}
-                      loadMore={loadMoreJudges}
-                      hasMore={hasMoreJudges}
-                      type="judge"
-                    />
-                  </>
-                )}
-              </AccordionDetails>
-            </Accordion>
-            
-            {/* Charge Accordion */}
-            <Accordion 
-              expanded={chargeAccordionExpanded}
-              onChange={handleChargeAccordionChange}
-              className="filter-accordion"
-            >
-              <AccordionSummary
-                expandIcon={<ExpandMore className="custom-expand-icon" />}
-                aria-controls="charge-filter-content"
-                id="charge-filter-header"
-                sx={{
-                  display: 'grid',
-                  gridTemplateAreas: `
-                    "title expandIcon"
-                    "selection selection"
-                  `,
-                  gridTemplateColumns: '1fr auto',
-                  alignItems: 'start',
-                  '& .MuiAccordionSummary-content': {
-                    display: 'contents',
-                  }
-                }}
-              >
-                <Typography className='accordion-title'>
-                  <ChargeIcon fontSize="small" className='icon' />
-                  Charge
-                </Typography>
-                
-                {selectedChargeId >= 2000 && (
-                  <Box 
-                    onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
-                  >
-                    <Typography>
-                      {chargeName || 'Selected Charge'}
-                    </Typography>
-                    <IconButton
-                      className='delete-icon'
-                      size="small" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleChargeSelect(0);
-                      }}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                )}
-              </AccordionSummary>
-              <AccordionDetails>
-                {chargeAccordionExpanded && (
-                  <>
-                    <TextField 
-                      label="Search Charges"
-                      variant="outlined"
-                      fullWidth
-                      size="small"
-                      value={chargeSearchTerm}
-                      onChange={handleChargeSearch}
-                      InputProps={{
-                        endAdornment: isTypingCharge ? <CircularProgress size={20} /> : null
-                      }}
-                      sx={{
-                        mt: 0,
-                        mb: 0,
-                        '& .MuiOutlinedInput-root': {
-                          borderBottomLeftRadius: 0,
-                          borderBottomRightRadius: 0,
-                        }
-                      }}
-                    />
-                    <SelectionList
-                      items={visibleCharges.filter(charge => 
-                        charge.name.toLowerCase().includes(chargeSearchTerm.toLowerCase()) && 
-                        (charge.id + 2000 !== selectedChargeId)
-                      ).map(item => ({
-                        id: item.id + 2000,
-                        name: item.name,
-                      }))}
-                      selectedId={finalParams?.chargeId || 0}
-                      onSelect={handleChargeSelect}
-                      searchTerm={debouncedChargeSearchTerm}
-                      loading={loadingCharges}
-                      loadMore={loadMoreCharges}
-                      hasMore={hasMoreCharges}
-                      type="charge"
-                    />
-                  </>
-                )}
-              </AccordionDetails>
-            </Accordion>
-
-              
-            {/* Charge Group Accordion */}
-            <Accordion 
-              expanded={chargeGroupAccordionExpanded}
-              onChange={handleChargeGroupAccordionChange}
-              className="filter-accordion"
-            >
-              <AccordionSummary
-                expandIcon={<ExpandMore className="custom-expand-icon" />}
-                aria-controls="charge-group-filter-content"
-                id="charge-group-filter-header"
-                sx={{
-                  display: 'grid',
-                  gridTemplateAreas: `
-                    "title expandIcon"
-                    "selection selection"
-                  `,
-                  gridTemplateColumns: '1fr auto',
-                  alignItems: 'start',
-                  '& .MuiAccordionSummary-content': {
-                    display: 'contents',
-                  }
-                }}
-              >
-                <Typography className='accordion-title'>
-                  <ChargeGroupsIcon fontSize="small" className='icon' />
-                  Charge Group
-                </Typography>
-                
-                {(selectedChargeId !== 0 && selectedChargeId < 2000) && (
-                  <Box 
-                    onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking on this box
-                  >
-                    <Typography>
-                      {filteredChargeGroups.find(c => c.id === selectedChargeId)?.name || 'Selected Charge Group'}
-                    </Typography>
-                    <IconButton
-                      className='delete-icon'
-                      size="small" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedChargeId(0);
-                      }}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                )}
-              </AccordionSummary>
-              <AccordionDetails>
-                {chargeGroupAccordionExpanded && (
-                  <>
-                    <TextField 
-                      label="Search Charge Groups"
-                      variant="outlined"
-                      fullWidth
-                      size="small"
-                      value={chargeGroupSearchTerm}
-                      onChange={handleChargeGroupSearch}
-                      InputProps={{
-                        endAdornment: isTypingChargeGroup ? <CircularProgress size={20} /> : null
-                      }}
-                      sx={{
-                        mt: 0,
-                        mb: 0,
-                        '& .MuiOutlinedInput-root': {
-                          borderBottomLeftRadius: 0,
-                          borderBottomRightRadius: 0,
-                        }
-                      }}
-                    />
-                    <SelectionList
-                      items={filteredChargeGroups
-                        .filter(item => 
-                          item.name.toLowerCase().includes(chargeGroupSearchTerm.toLowerCase()) && 
-                          (item.id !== selectedChargeId)
-                        )}
-                      selectedId={selectedChargeId}
-                      onSelect={handleChargeGroupSelect}
-                      searchTerm={chargeGroupSearchTerm}
-                      loading={false}
-                      loadMore={() => {}} // No load more needed, all items are loaded at once
-                      hasMore={false}
-                      type="charge"
-                    />
-                  </>
-                )}
-              </AccordionDetails>
-            </Accordion>
-          </Box>
           <Box className="tab-container">
             <TabContext value={activeTab}>
               <Box className="results-tabs-container">
-                <div className="specification-title-text">
-                  {loading ? "Loading..." : `${totalCases.toLocaleString()} Total Cases`}
-                </div>
                 <Tabs
                   value={activeTab}
                   onChange={handleTabChange}
@@ -1012,6 +528,16 @@ const ResultsPage = () => {
                     className="results-tab"
                   />
                 </Tabs>
+                <VariabilityDisplay
+                  loading={loading}
+                  totalCases={totalCases}
+                  data={data}
+                  activeTab={activeTab}
+                  dispositionsTrialType={dispositionsTrialType}
+                  sentenceDisplayMode={sentenceDisplayMode}
+                  selectedSentenceType={selectedSentenceType}
+                  bailDisplayMode={bailDisplayMode}
+                />
               </Box>
               
               <TabPanel value="dispositions" className="results-tab-panel">
@@ -1060,6 +586,8 @@ const ResultsPage = () => {
                         data={getDataForViewMode('sentences', sentencesViewMode)} 
                         viewMode={sentencesViewMode}
                         displayMode={sentenceDisplayMode}
+                        selectedSentenceType={selectedSentenceType}
+                        onSelectedSentenceTypeChange={handleSelectedSentenceTypeChange}
                       />
                     </div>
                   </Paper>

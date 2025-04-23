@@ -28,7 +28,6 @@ export default function RootLayout({
       <body>
         <PostHogProvider>
           <PasswordProtection>
-            <NavBar />
             <main>{children}</main>
             <Footer />
           </PasswordProtection>
