@@ -115,7 +115,6 @@ async function searchJudges(
     offset: string,
     limit: string 
   ): Promise<SearchResultItem[]> {
-    let filterJoin = '';
     const params: any[] = [];
   
     // Composite key filter: main is judge_id
@@ -141,7 +140,6 @@ async function searchJudges(
         COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions
       FROM judges j
       JOIN specification s ON s.judge_id = j.judge_id
-      ${filterJoin}
       WHERE 1=1
         ${excludeAnyRow('j', 'judge_id')}
         ${searchClause}
@@ -165,7 +163,6 @@ async function searchCourts(
     offset: string,
     limit: string
   ): Promise<SearchResultItem[]> {
-    let filterJoin = 'JOIN specification s ON s.court_id = c.id';
     const params: any[] = [];
   
     // Composite key filter: main is court_id
@@ -189,7 +186,7 @@ async function searchCourts(
         c.name AS name,
         COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions
       FROM courts c
-      ${filterJoin}
+        JOIN specification s ON s.court_id = c.id
       WHERE 1=1
         ${excludeAnyRow('c', 'id')}
         ${searchClause}
@@ -213,7 +210,6 @@ async function searchCharges(
     offset: string,
     limit: string
   ): Promise<SearchResultItem[]> {
-    let filterJoin = 'JOIN specification s ON s.charge_id = c.id';
     const params: any[] = [];
   
     // Composite key filter: main is charge_id
@@ -237,7 +233,7 @@ async function searchCharges(
         c.name AS name,
         COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions
       FROM charge_options c
-      ${filterJoin}
+        JOIN specification s ON s.charge_id = c.id
       WHERE type = 'charge'
         ${excludeAnyRow('c', 'id')}
         ${searchClause}
@@ -260,10 +256,7 @@ async function searchChargeGroups(
     offset: string,
     limit: string
   ): Promise<SearchResultItem[]> {
-    let filterJoin = '';
     const params: any[] = [];
-
-    filterJoin = `JOIN specification s ON s.charge_id = cg.id`;
   
     // Composite key filter: main is charge_id (from charges in the join)
     const { where: compositeWhere, params: compositeParams } = buildCompositeKeyFilter(
@@ -286,7 +279,7 @@ async function searchChargeGroups(
         cg.name AS name,
         COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions
       FROM charge_options cg
-      ${filterJoin}
+        JOIN specification s ON s.charge_id = cg.id
       WHERE type != 'charge'
         ${excludeAnyRow('cg', 'id')}
         ${searchClause}

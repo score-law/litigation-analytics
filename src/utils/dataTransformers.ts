@@ -68,13 +68,13 @@ export function transformDispositionsData(rawData: ApiResponse): DispositionData
   // Define disposition types to extract
   const dispositionTypes = [
     { key: 'aquittals', label: 'Acquittal' },
+    { key: 'guilty', label: 'Guilty' },
+    { key: 'guilty_plea', label: 'Guilty Plea' },
     { key: 'dismissals', label: 'Dismissal' },
-    { key: 'not_responsible', label: 'Not Responsible' },
     { key: 'nolle_prosequis', label: 'Nolle Prosequi' },
     { key: 'cwof', label: 'CWOF' },
+    { key: 'not_responsible', label: 'Not Responsible' },
     { key: 'responsible', label: 'Responsible' },
-    { key: 'guilty_plea', label: 'Guilty Plea' },
-    { key: 'guilty', label: 'Guilty' },
   ];
   
   // Process each disposition type

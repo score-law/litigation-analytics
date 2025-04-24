@@ -50,8 +50,12 @@ const SearchForm: React.FC = () => {
           <Image src={Logo} alt="Logo" />
         </Link>
       </header>
-      <div className="search-bar-container">
-        <div className="search-bar-contain">
+      <div className="search-page">
+        <div className="search-title">
+          <h1>Case Search</h1>
+          <p>Input case details to identify key disposition, trial, bail, sentencing, and motion data across 3.7m previous cases.</p>
+        </div>
+        <div className="search-bar-container">
           <SearchBar selections={selections} onSelectionsChange={setSelections} />
           <div className="submit-button-container">
             <button

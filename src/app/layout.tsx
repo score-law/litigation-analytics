@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.scss";
 
 // components
-import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import PasswordProtection from "@/components/PasswordProtection";
 import { PostHogProvider } from "@/components/PostHogProvider";

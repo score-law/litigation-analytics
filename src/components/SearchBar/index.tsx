@@ -521,12 +521,12 @@ export default function SearchBar({
 
 
   // Type Indicator component to show what type of item is selected
-  const TypeIndicator = ({ type }: { type: SelectionType }) => {
-    if (!type) return null;
+  const InputAnnotation = ({ text }: { text: SelectionType | '(required)' | '(optional)' }) => {
+    if (!text) return null;
     
     return (
-      <div className="type-indicator">
-        {type}
+      <div className={`input-annotation ${text != '(required)' && text != '(optional)' ? 'type' : ''}`}>
+        {text}
       </div>
     );
   };
@@ -548,9 +548,7 @@ export default function SearchBar({
         className={`input-wrapper ${isCollapsed ? 'collapsed' : ''} ${widthClass}`} 
         ref={el => { inputRefs.current[index] = el; }}
       >
-        {selection?.type && (
-          <TypeIndicator type={selection.type} />
-        )}
+        <InputAnnotation text={selection ? selection.type : (index == 0 ? '(required)' : '(optional)')} />
         
         <div 
           className={`search-input ${isCollapsed ? 'collapsed-input' : ''}`} 
@@ -563,7 +561,7 @@ export default function SearchBar({
               </div>
             ) : (
               <div className="placeholder">
-                <AddIcon fontSize="small" />
+                <AddIcon sx={{fontSize: '18px'}} />
                 <span>Search</span>
               </div>
             )
@@ -571,8 +569,8 @@ export default function SearchBar({
           
           {isCollapsed && (
             <div className="placeholder">
-              <AddIcon fontSize="small" />
-              <span>Filter</span>
+              <AddIcon sx={{fontSize: '18px'}} />
+              <span>Add Selection</span>
             </div>
           )}
           
@@ -659,7 +657,7 @@ export default function SearchBar({
                 <input
                   ref={searchInputRef}
                   type="text"
-                  placeholder="Search..."
+                  placeholder="Filter..."
                   value={currentInputValue}
                   onChange={handleControlledInputChange}
                 />

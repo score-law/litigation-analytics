@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     // Query for user with the provided email
     const users = await query<UserRow[]>(
-      'SELECT id, email, password FROM users WHERE email = ?',
+      'SELECT id, email, password FROM score_static.users WHERE email = ?',
       [email]
     );
 
