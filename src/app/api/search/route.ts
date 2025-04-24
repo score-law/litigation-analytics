@@ -1,9 +1,114 @@
-
-
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/db/connection';
 import { SearchResultItem } from '@/types';
 import { RowDataPacket } from 'mysql2';
+
+/**
+ * Helper function to prepare search patterns for both BOOLEAN MODE search and LIKE queries.
+ * Generates appropriate wildcards for partial word matching.
+ * @param searchTerm The user's search term
+ * @returns Object containing patterns for different search types
+ */
+function prepareSearchPatterns(searchTerm: string) {
+  if (!searchTerm || !searchTerm.trim()) {
+    return { 
+      original: '',
+      boolean: '',
+      like: '',
+      words: []
+    };
+  }
+
+  const trimmed = searchTerm.trim();
+  // Split search term into words for multi-word searches
+  const words = trimmed.split(/\s+/);
+  
+  // For BOOLEAN MODE: add * wildcard to each word for partial matching
+  const booleanTerms = words.map(word => `${word}*`).join(' ');
+
+  return {
+    original: trimmed,
+    boolean: booleanTerms,
+    like: `%${trimmed}%`,
+    words: words
+  };
+}
+
+/**
+ * Builds a scoring expression for relevance-based sorting of search results.
+ * Prioritizes exact matches, prefix matches, and then contains matches.
+ * @param fieldExpressions Array of field expressions to search in (e.g., 'first', 'last')
+ * @param searchPatterns Search patterns from prepareSearchPatterns
+ * @returns SQL expression for scoring and WHERE clause conditions
+ */
+function buildScoringExpression(fieldExpressions: string[], searchPatterns: ReturnType<typeof prepareSearchPatterns>) {
+  if (!searchPatterns.original) {
+    return {
+      scoreExpr: '0 AS search_score',
+      whereConditions: '',
+      params: []
+    };
+  }
+
+  const { original, boolean, like, words } = searchPatterns;
+  const params: any[] = [];
+  
+  // Build scoring components
+  const scoringComponents: string[] = [];
+  const whereConditions: string[] = [];
+  
+  // Position-based scoring for LIKE queries (higher score for prefix matches)
+  const likeConditions: string[] = [];
+  
+  // Add LIKE conditions for all field expressions
+  fieldExpressions.forEach(field => {
+    // Contains (medium priority) - for filtering and scoring
+    likeConditions.push(`${field} LIKE ?`);
+    params.push(like);
+    
+    // For scoring only - add these to scoring components
+    
+    // Exact match (highest priority)
+    scoringComponents.push(`((${field} = ?) * 30)`);
+    params.push(original);
+    
+    // Starts with (high priority)
+    scoringComponents.push(`((${field} LIKE ?) * 15)`);
+    params.push(`${original}%`);
+    
+    // For multi-word searches, check if any individual word matches at the start
+    if (words.length > 1) {
+      words.forEach(word => {
+        if (word.length >= 2) {
+          scoringComponents.push(`((${field} LIKE ?) * 5)`);
+          params.push(`${word}%`);
+        }
+      });
+    }
+  });
+  
+  // 1. FULLTEXT BOOLEAN MODE for flexible matching with wildcards - only for scoring if term is long enough
+  if (original.length >= 2) {
+    const matchFields = fieldExpressions.join(', ');
+    
+    // Use FULLTEXT for scoring only
+    scoringComponents.push(`(MATCH(${matchFields}) AGAINST(? IN BOOLEAN MODE) * 10)`);
+    params.push(boolean);
+    
+    // Add the match condition to where clause too (as an alternative to LIKE)
+    whereConditions.push(`(MATCH(${matchFields}) AGAINST(? IN BOOLEAN MODE))`);
+    params.push(boolean);
+  }
+  
+  // Always include LIKE conditions in the WHERE clause
+  whereConditions.push(`(${likeConditions.join(' OR ')})`);
+  
+  return {
+    scoreExpr: `(${scoringComponents.length > 0 ? scoringComponents.join(' + ') : '0'}) AS search_score`,
+    whereConditions: whereConditions.length > 0 ? `AND (${whereConditions.join(' OR ')})` : '',
+    params: params
+  };
+}
 
 /**
  * /api/search
@@ -107,51 +212,107 @@ function buildCompositeKeyFilter(
 
 /**
  * Search Judges with optional filter by selected entity.
+ * Uses a specialized concatenated name approach to better handle searching across first, middle, and last names.
  */
 async function searchJudges(
-    searchTerm: string,
-    selectedCategory: string | null,
-    selectedId: string | null,
-    offset: string,
-    limit: string 
-  ): Promise<SearchResultItem[]> {
-    const params: any[] = [];
+  searchTerm: string,
+  selectedCategory: string | null,
+  selectedId: string | null,
+  offset: string,
+  limit: string 
+): Promise<SearchResultItem[]> {
+  const params: any[] = [];
+
+  // Composite key filter: main is judge_id
+  const { where: compositeWhere, params: compositeParams } = buildCompositeKeyFilter(
+    'judge_id', 'j.judge_id', selectedCategory, selectedId
+  );
+  params.push(...compositeParams);
+
+  // Generate search patterns for concatenated name search
+  const searchPatterns = prepareSearchPatterns(searchTerm);
+  const { original, like } = searchPatterns;
+
+  // Define search conditions specifically for judges
+  let whereConditions = '';
+  const scoringExpressions = [];
   
-    // Composite key filter: main is judge_id
-    const { where: compositeWhere, params: compositeParams } = buildCompositeKeyFilter(
-      'judge_id', 'j.judge_id', selectedCategory, selectedId
-    );
-    params.push(...compositeParams);
-  
-    let searchClause = '';
-    if (searchTerm && searchTerm.trim().length >= 3) {
-      searchClause = `AND MATCH(j.first, j.middle, j.last) AGAINST(? IN NATURAL LANGUAGE MODE)`;
-      params.unshift(searchTerm.trim());
-    } else if (searchTerm) {
-      searchClause = `AND (j.first LIKE ? OR j.middle LIKE ? OR j.last LIKE ?)`;
-      const likeTerm = `%${searchTerm.trim()}%`;
-      params.unshift(likeTerm, likeTerm, likeTerm);
+  if (searchTerm && searchTerm.trim()) {
+    // Use CONCAT_WS to search across all name components
+    const fullNameExpr = `CONCAT_WS(' ', j.first, j.middle, j.last)`;
+    
+    // Scoring components - prioritize different match types
+    // Exact match - highest priority
+    scoringExpressions.push(`((${fullNameExpr} = ?) * 30)`);
+    params.push(original);
+    
+    // Starts with - high priority
+    scoringExpressions.push(`((${fullNameExpr} LIKE ?) * 20)`);
+    params.push(`${original}%`);
+    
+    // Contains in fullname - medium priority
+    scoringExpressions.push(`((${fullNameExpr} LIKE ?) * 10)`);
+    params.push(`%${original}%`);
+    
+    // Last name exact match - high priority
+    scoringExpressions.push(`((j.last = ?) * 25)`);
+    params.push(original);
+    
+    // Last name starts with - medium-high priority
+    scoringExpressions.push(`((j.last LIKE ?) * 15)`);
+    params.push(`${original}%`);
+    
+    // First name exact match - medium priority
+    scoringExpressions.push(`((j.first = ?) * 20)`);
+    params.push(original);
+    
+    // First name starts with - lower-medium priority
+    scoringExpressions.push(`((j.first LIKE ?) * 10)`);
+    params.push(`${original}%`);
+    
+    // WHERE conditions - much more inclusive to ensure we find all relevant matches
+    const whereExpressions = [
+      `${fullNameExpr} LIKE ?`,    // Full name contains
+      `j.last LIKE ?`,             // Last name contains
+      `j.first LIKE ?`,            // First name contains
+    ];
+    
+    // We'll use the same "contains" parameter for all conditions
+    params.push(`%${original}%`, `%${original}%`, `%${original}%`);
+    
+    // If middle name is commonly searched, add it too
+    if (original.length > 1) {
+      whereExpressions.push(`j.middle LIKE ?`);
+      params.push(`%${original}%`);
     }
-  
-    const sql = `
-      SELECT 
-        j.judge_id AS id,
-        CONCAT_WS(' ', j.first, j.middle, j.last) AS name,
-        COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions
-      FROM judges j
-      JOIN specification s ON s.judge_id = j.judge_id
-      WHERE 1=1
-        ${excludeAnyRow('j', 'judge_id')}
-        ${searchClause}
-        ${compositeWhere}
-      GROUP BY j.judge_id
-      ORDER BY total_case_dispositions DESC
-      LIMIT ? OFFSET ?
-    `;
-    params.push(limit, offset);
-  
-    return (await query<RowDataPacket[]>(sql, params)) as SearchResultItem[];
+    
+    whereConditions = `AND (${whereExpressions.join(' OR ')})`;
   }
+
+  const scoreExpr = scoringExpressions.length > 0 
+    ? `(${scoringExpressions.join(' + ')}) AS search_score` 
+    : '0 AS search_score';
+
+  const sql = `
+    SELECT 
+      j.judge_id AS id,
+      CONCAT_WS(' ', j.first, j.middle, j.last) AS name,
+      COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions,
+      ${scoreExpr}
+    FROM judges j
+    JOIN specification s ON s.judge_id = j.judge_id
+    WHERE 1=1
+      ${excludeAnyRow('j', 'judge_id')}
+      ${whereConditions}
+      ${compositeWhere}
+    GROUP BY j.judge_id
+    ORDER BY search_score DESC, total_case_dispositions DESC
+    LIMIT ? OFFSET ?
+  `;
+  params.push(limit, offset);
+
+  return (await query<RowDataPacket[]>(sql, params)) as SearchResultItem[];
+}
 
 /**
  * Search Courts with optional filter by selected entity.
@@ -171,28 +332,26 @@ async function searchCourts(
     );
     params.push(...compositeParams);
   
-    let searchClause = '';
-    if (searchTerm && searchTerm.trim().length >= 3) {
-      searchClause = `AND MATCH(c.name) AGAINST(? IN NATURAL LANGUAGE MODE)`;
-      params.unshift(searchTerm.trim());
-    } else if (searchTerm) {
-      searchClause = `AND c.name LIKE ?`;
-      params.unshift(`%${searchTerm.trim()}%`);
-    }
+    const searchPatterns = prepareSearchPatterns(searchTerm);
+    const { scoreExpr, whereConditions, params: scoringParams } = buildScoringExpression(
+      ['c.name'], searchPatterns
+    );
+    params.push(...scoringParams);
   
     const sql = `
       SELECT 
         c.id AS id,
         c.name AS name,
-        COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions
+        COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions,
+        ${scoreExpr}
       FROM courts c
         JOIN specification s ON s.court_id = c.id
       WHERE 1=1
         ${excludeAnyRow('c', 'id')}
-        ${searchClause}
+        ${whereConditions}
         ${compositeWhere}
       GROUP BY c.id
-      ORDER BY total_case_dispositions DESC
+      ORDER BY search_score DESC, total_case_dispositions DESC
       LIMIT ? OFFSET ?
     `;
     params.push(limit, offset);
@@ -218,28 +377,26 @@ async function searchCharges(
     );
     params.push(...compositeParams);
   
-    let searchClause = '';
-    if (searchTerm && searchTerm.trim().length >= 3) {
-      searchClause = `AND MATCH(c.name) AGAINST(? IN NATURAL LANGUAGE MODE)`;
-      params.unshift(searchTerm.trim());
-    } else if (searchTerm) {
-      searchClause = `AND c.name LIKE ?`;
-      params.unshift(`%${searchTerm.trim()}%`);
-    }
+    const searchPatterns = prepareSearchPatterns(searchTerm);
+    const { scoreExpr, whereConditions, params: scoringParams } = buildScoringExpression(
+      ['c.name'], searchPatterns
+    );
+    params.push(...scoringParams);
   
     const sql = `
       SELECT 
         c.id AS id,
         c.name AS name,
-        COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions
+        COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions,
+        ${scoreExpr}
       FROM charge_options c
         JOIN specification s ON s.charge_id = c.id
       WHERE type = 'charge'
         ${excludeAnyRow('c', 'id')}
-        ${searchClause}
+        ${whereConditions}
         ${compositeWhere}
       GROUP BY c.id
-      ORDER BY total_case_dispositions DESC
+      ORDER BY search_score DESC, total_case_dispositions DESC
       LIMIT ? OFFSET ?
     `;
     params.push(limit, offset);
@@ -264,28 +421,26 @@ async function searchChargeGroups(
     );
     params.push(...compositeParams);
   
-    let searchClause = '';
-    if (searchTerm && searchTerm.trim().length >= 3) {
-      searchClause = `AND MATCH(cg.name) AGAINST(? IN NATURAL LANGUAGE MODE)`;
-      params.unshift(searchTerm.trim());
-    } else if (searchTerm) {
-      searchClause = `AND cg.name LIKE ?`;
-      params.unshift(`%${searchTerm.trim()}%`);
-    }
+    const searchPatterns = prepareSearchPatterns(searchTerm);
+    const { scoreExpr, whereConditions, params: scoringParams } = buildScoringExpression(
+      ['cg.name'], searchPatterns
+    );
+    params.push(...scoringParams);
   
     const sql = `
       SELECT 
         cg.id AS id,
         cg.name AS name,
-        COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions
+        COALESCE(SUM(s.total_case_dispositions), 0) AS total_case_dispositions,
+        ${scoreExpr}
       FROM charge_options cg
         JOIN specification s ON s.charge_id = cg.id
       WHERE type != 'charge'
         ${excludeAnyRow('cg', 'id')}
-        ${searchClause}
+        ${whereConditions}
         ${compositeWhere}
       GROUP BY cg.id
-      ORDER BY total_case_dispositions DESC
+      ORDER BY search_score DESC, total_case_dispositions DESC
       LIMIT ? OFFSET ?
     `;
     params.push(limit, offset);
