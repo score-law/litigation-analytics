@@ -53,7 +53,7 @@ const SearchForm: React.FC = () => {
       <div className="search-page">
         <div className="search-title">
           <h1>Case Search</h1>
-          <p>Input case details to identify key disposition, trial, bail, sentencing, and motion data across 3.7m previous cases.</p>
+          <p>Input case details to identify key disposition, trial, bail, sentencing, and motion data across 3.8 million previous cases.</p>
         </div>
         <div className="search-bar-container">
           <SearchBar selections={selections} onSelectionsChange={setSelections} />

@@ -55,6 +55,9 @@ const ResultsPage = () => {
   // This is our single source of truth
   const [currentSelections, setCurrentSelections] = useState<Array<Selection | null>>([null, null]);
   
+  // Track if selections have been changed by user action (different from initial URL load)
+  const [hasSelectionChanged, setHasSelectionChanged] = useState<boolean>(false);
+  
   // Use ref for parameter tracking to avoid infinite loop
   const finalParamsRef = useRef<{
     courtId: number;
@@ -252,12 +255,16 @@ const ResultsPage = () => {
     // Skip if not initialized yet
     if (!initializedRef.current) return;
     
-    // Skip initial render with empty selections
-    if (currentSelections.every(sel => sel === null)) return;
+    // Only skip fetching on initial render with empty selections
+    // Allow fetching if user explicitly cleared all selections
+    if (currentSelections.every(sel => sel === null) && !hasSelectionChanged) return;
+    
+    // Mark that selections have explicitly changed
+    setHasSelectionChanged(true);
     
     fetchFilteredData();
     syncUrlWithState();
-  }, [currentSelections, fetchFilteredData, syncUrlWithState]);
+  }, [currentSelections, fetchFilteredData, syncUrlWithState, hasSelectionChanged]);
 
   // Reset loading bar if a new fetch is triggered before previous completes
   useEffect(() => {
