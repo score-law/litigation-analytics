@@ -252,6 +252,9 @@ const ResultsPage = () => {
     // Skip if not initialized yet
     if (!initializedRef.current) return;
     
+    // Skip initial render with empty selections
+    if (currentSelections.every(sel => sel === null)) return;
+    
     fetchFilteredData();
     syncUrlWithState();
   }, [currentSelections, fetchFilteredData, syncUrlWithState]);
