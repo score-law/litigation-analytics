@@ -9,11 +9,7 @@
   width: 70vw !important;
   height: 50vh;
   transition: height 0.3s ease;
-  
-  &.expanded {
-    height: 80vh;
-  }
-  
+
   /* Ensure the container properly holds the chart */
   display: flex;
   justify-content: center;
@@ -22,6 +18,17 @@
   
   /* Allow tooltips and axis labels to overflow the container */
   overflow: visible;
+
+  @media (max-width: 1200px) {
+    width: 85vw !important;
+  }
+  @media (max-width: 1000px) {
+    width: 90vw !important;
+  }
+  
+  &.expanded {
+    height: 80vh;
+  }
   
   /* Improve chart appearance */
   & .MuiChartsAxis-label {

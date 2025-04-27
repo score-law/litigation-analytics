@@ -63,7 +63,8 @@ const SearchForm: React.FC = () => {
               onClick={handleSearch}
               disabled={!hasValidSelection}
             >
-              <SearchIcon fontSize='medium' />
+              <SearchIcon className='desktop-tablet' fontSize='medium' />
+              <p className='phone'>Search</p>
             </button>
           </div>
         </div>

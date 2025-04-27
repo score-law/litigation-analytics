@@ -159,8 +159,8 @@ const BailTab = ({ data, viewMode, displayMode }: BailTabProps) => {
           xAxisLabel={
             viewMode === 'comparative'
               ? (displayMode === 'frequency' 
-                  ? 'Bail Decision Ratio Relative to Average' 
-                  : 'Bail Percentage Relative to Average')
+                  ? 'Bail Decision % Relative to Avg' 
+                  : 'Bail Percentage Relative to Avg')
               : (displayMode === 'frequency' 
                   ? 'Percent of Cases' 
                   : 'Percent of Cash Bail Cases')
@@ -168,8 +168,8 @@ const BailTab = ({ data, viewMode, displayMode }: BailTabProps) => {
           viewMode={viewMode}
           margin={
             displayMode === 'severity'
-              ? { top: 30, bottom: 50, left: 60, right: 50 }
-              : { top: 30, bottom: 50, left: 100, right: 50 }
+              ? { top: 5, bottom: 50, left: 60, right: 20 }
+              : { top: 5, bottom: 50, left: 100, right: 20 }
           }
           domainConfig={
             viewMode === 'objective' 

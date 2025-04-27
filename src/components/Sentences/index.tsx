@@ -189,8 +189,8 @@ const SentencesTab = ({ data, viewMode, displayMode, selectedSentenceType, onSel
           xAxisLabel={
             viewMode === 'comparative' 
               ? (displayMode === 'frequency' 
-                ? 'Sentencing Ratio Relative to Average' 
-                : 'Distribution Relative to Average')
+                ? 'Sentencing % Relative to Avg' 
+                : '% Relative to Avg')
               : (displayMode === 'frequency' 
                 ? 'Percent of Cases Sentenced' 
                 : 'Percent of Sentences')
@@ -198,8 +198,8 @@ const SentencesTab = ({ data, viewMode, displayMode, selectedSentenceType, onSel
           viewMode={viewMode}
           margin={
             displayMode === 'severity'
-              ? { top: 30, bottom: 40, left: 60, right: 50 }
-              : { top: 30, bottom: 50, left: 100, right: 50 }
+              ? { top: 0, bottom: 40, left: 60, right: 20 }
+              : { top: 0, bottom: 50, left: 90, right: 20 }
           }
           preserveStackInComparative={displayMode === 'frequency'}
           domainConfig={

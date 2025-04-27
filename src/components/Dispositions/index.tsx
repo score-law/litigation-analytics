@@ -137,9 +137,9 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
       <BarChartDisplay
         chartData={breakdownChartData}
         layout="horizontal"
-        xAxisLabel={viewMode === 'comparative' ? 'Disposition Rates Compared to Average' : 'Percentage of Total Charges'}
+        xAxisLabel={viewMode === 'comparative' ? 'Disposition % Compared to Avg' : 'Percentage of Total Charges'}
         viewMode={viewMode}
-        margin={{ top: 20, bottom: 50, left: 150, right: 30 }}
+        margin={{ top: 0, bottom: 50, left: 140, right: 20 }}
         domainConfig={
           viewMode === 'objective' 
             ? { type: 'fixed', min: 0, max: 100 } // Keep fixed scale for objective

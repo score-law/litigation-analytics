@@ -28,7 +28,7 @@ const MOTION_TYPES_CONFIG = {
   'dangerousness': 'Dangerousness (58a)',
   'continue': 'Continue',
   'new trial': 'New Trial',
-  'RFNG': 'Required Finding Not Guilty',
+  'RFNG': 'Req. Find Not Guilty',
   'impound': 'Impound',
   'reconsider': 'Reconsider',
   'revoke order': 'Revoke Order',
@@ -348,10 +348,10 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
       <div className="chart-section">
         <BarChartDisplay 
           chartData={motionsChartData} 
-          xAxisLabel={viewMode === 'comparative' ? 'Ratio of Motions Granted Relative to Average' : 'Number of Motions'}
+          xAxisLabel={viewMode === 'comparative' ? '% of Motions Granted Relative to Avg' : 'Number of Motions'}
           viewMode={viewMode}
           className={isExpanded ? 'expanded' : ''}
-          margin={{ top: 30, bottom: 50, left: 180, right: 80 }}
+          margin={{ top: 30, bottom: 50, left: 140, right: 20 }}
           domainConfig={
             viewMode === 'objective' 
               ? { type: 'auto' } // Keep fixed scale for objective
