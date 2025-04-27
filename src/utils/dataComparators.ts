@@ -256,8 +256,15 @@ export function calculateComparativeMotionsData(
     const avgMotion = averageMap.get(currentMotion.type);
     
     if (!avgMotion) {
-      // If no matching average data, return the current data unchanged
-      return currentMotion;
+      // If no matching average data, add default comparative ratios of 1 (same as average)
+      return {
+        ...currentMotion,
+        comparativeRatios: {
+          overall: 1,
+          prosecution: 1,
+          defense: 1
+        }
+      };
     }
     
     // Calculate overall comparative ratio (all motions)
@@ -268,7 +275,7 @@ export function calculateComparativeMotionsData(
     const avgRatio = avgTotal > 0 ? avgMotion.status.granted / avgTotal : 0;
     
     // Avoid division by zero
-    const overallComparativeRatio = avgRatio > 0 ? currentRatio / avgRatio : (currentRatio > 0 ? 2 : 1); // 2 = better than average, 1 = same as average
+    const overallComparativeRatio = currentTotal > 0 ? currentRatio / avgRatio : 1;
     
     // Calculate prosecution-specific comparative ratio
     const currentProsTotal = currentMotion.partyFiled.granted + currentMotion.partyFiled.denied;
@@ -277,8 +284,7 @@ export function calculateComparativeMotionsData(
     const avgProsTotal = avgMotion.partyFiled.granted + avgMotion.partyFiled.denied;
     const avgProsRatio = avgProsTotal > 0 ? avgMotion.partyFiled.granted / avgProsTotal : 0;
     
-    const prosecutionComparativeRatio = avgProsRatio > 0 ? currentProsRatio / avgProsRatio : 
-                                     (currentProsRatio > 0 ? 2 : 1);
+    const prosecutionComparativeRatio = currentProsTotal > 0 ? currentProsRatio / avgProsRatio :  1;
     
     // Calculate defense-specific comparative ratio
     // Defense motion counts are derived by subtracting prosecution counts from total counts
@@ -292,8 +298,7 @@ export function calculateComparativeMotionsData(
     const avgDefTotal = avgDefGranted + avgDefDenied;
     const avgDefRatio = avgDefTotal > 0 ? avgDefGranted / avgDefTotal : 0;
     
-    const defenseComparativeRatio = avgDefRatio > 0 ? currentDefRatio / avgDefRatio :
-                                  (currentDefRatio > 0 ? 2 : 1);
+    const defenseComparativeRatio = currentDefTotal > 0 ? currentDefRatio / avgDefRatio : 1;
     
     // Return the motion with all comparative ratios in a clearer structure
     return {

@@ -54,7 +54,7 @@ const ResultsPage = () => {
   
   // This is our single source of truth
   const [currentSelections, setCurrentSelections] = useState<Array<Selection | null>>([null, null]);
-  
+
   // Track if selections have been changed by user action (different from initial URL load)
   const [hasSelectionChanged, setHasSelectionChanged] = useState<boolean>(false);
   
@@ -85,8 +85,9 @@ const ResultsPage = () => {
   // Define filter options
   const TRIAL_TYPE_OPTIONS = [
     { value: "all", label: "All Trials" },
+    { value: "none", label: "No Trial" },
     { value: "jury", label: "Jury Trial" },
-    { value: "bench", label: "Bench Trial" }
+    { value: "bench", label: "Bench Trial" },
   ];
 
   const SENTENCE_DISPLAY_OPTIONS = [
@@ -181,25 +182,17 @@ const ResultsPage = () => {
       const prevParams = finalParamsRef.current;
       const currentParams = { courtId, judgeId, chargeId };
   
-      if (!prevParams || chargeId !== prevParams.chargeId) {
-        let averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=`;
-  
-        if (chargeId === 0 || (chargeId === 0 && judgeId === 0 && courtId === 0)) {
-          averageApiUrl += '0';
-        } else {
-          averageApiUrl += chargeId.toString();
-        }
-  
+      const needsAverageFetch = !prevParams || chargeId !== prevParams.chargeId || 
+        ((prevParams.judgeId === 0 && prevParams.courtId === 0) !== (judgeId === 0 && courtId === 0));
+      
+      if (needsAverageFetch) {
+        const averageApiUrl = `/api/specification?courtId=0&judgeId=0&chargeId=${chargeId === 0 || (chargeId && !judgeId && !courtId) ? 0 : chargeId}`;
         const averageResponse = await fetch(averageApiUrl);
         if (!averageResponse.ok) throw new Error('Failed to fetch average data');
-  
         if (initialLoadComplete) setProgress(90);
-  
-        const averageApiData = await averageResponse.json();
-        const transformedAverageData = transformApiResponseToSearchResultData(averageApiData);
-        setAverageData(transformedAverageData);
-      } else {
-        if (initialLoadComplete) setProgress(90);
+        setAverageData(transformApiResponseToSearchResultData(await averageResponse.json()));
+      } else if (initialLoadComplete) {
+        setProgress(90);
       }
   
       finalParamsRef.current = currentParams;
@@ -255,11 +248,8 @@ const ResultsPage = () => {
     // Skip if not initialized yet
     if (!initializedRef.current) return;
     
-    // Only skip fetching on initial render with empty selections
-    // Allow fetching if user explicitly cleared all selections
+    // Skip initial render with empty selections
     if (currentSelections.every(sel => sel === null) && !hasSelectionChanged) return;
-    
-    // Mark that selections have explicitly changed
     setHasSelectionChanged(true);
     
     fetchFilteredData();

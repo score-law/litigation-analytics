@@ -70,11 +70,18 @@ export function transformDispositionsData(rawData: ApiResponse): DispositionData
     { key: 'aquittals', label: 'Acquittal' },
     { key: 'guilty', label: 'Guilty' },
     { key: 'guilty_plea', label: 'Guilty Plea' },
+    { key: 'guilty_file', label: 'Guilty File' },
+
     { key: 'dismissals', label: 'Dismissal' },
+    { key: 'conditional_dismissals', label: 'Conditional Dismissal' },
+    { key: 'dismissed_lack_of_prosecution', label: 'DLOP' },
+    { key: 'no_probable_cause', label: 'No Probable Cause' },
+
     { key: 'nolle_prosequis', label: 'Nolle Prosequi' },
     { key: 'cwof', label: 'CWOF' },
     { key: 'not_responsible', label: 'Not Responsible' },
     { key: 'responsible', label: 'Responsible' },
+    //{ key: 'other', label: 'Other' },
   ];
   
   // Process each disposition type
@@ -126,29 +133,27 @@ export function transformSentencesData(rawData: ApiResponse): SentenceData[] {
   // Define sentence types with their corresponding database fields
   const sentenceTypes = [
     { 
-      type: 'License\nSuspension',
-      countField: 'license_lost_count',
-      totalField: null,
-      daysField: 'total_license_lost_days',
-      bucketPrefix: 'license_lost_',
+      type: 'Fine',
+      countField: 'fine_count',
+      totalField: 'total_fine',
+      daysField: null,
+      bucketPrefix: 'fine_',
       buckets: [
-        { field: 'license_lost_1', label: '1 month' },
-        { field: 'license_lost_2', label: '2 months' },
-        { field: 'license_lost_3', label: '3 months' },
-        { field: 'license_lost_4', label: '4 months' },
-        { field: 'license_lost_6', label: '6 months' },
-        { field: 'license_lost_8', label: '8 months' },
-        { field: 'license_lost_10', label: '10 months' },
-        { field: 'license_lost_12', label: '12 months' },
-        { field: 'license_lost_15', label: '15 months' },
-        { field: 'license_lost_18', label: '18 months' },
-        { field: 'license_lost_21', label: '21 months' },
-        { field: 'license_lost_24', label: '24 months' },
-        { field: 'license_lost_24_plus', label: '24+ months' }
+        { field: 'fine_50', label: '$50' },
+        { field: 'fine_100', label: '$100' },
+        { field: 'fine_200', label: '$200' },
+        { field: 'fine_300', label: '$300' },
+        { field: 'fine_500', label: '$500' },
+        { field: 'fine_1000', label: '$1,000' },
+        { field: 'fine_2000', label: '$2,000' },
+        { field: 'fine_3000', label: '$3,000' },
+        { field: 'fine_4000', label: '$4,000' },
+        { field: 'fine_5000', label: '$5,000' },
+        { field: 'fine_5000_plus', label: '$5,000+' }
       ]
     },
     { 
-      type: 'Fine',
+      type: 'Fee',
       countField: 'fee_count',
       totalField: 'total_fee',
       daysField: null,
@@ -209,6 +214,28 @@ export function transformSentencesData(rawData: ApiResponse): SentenceData[] {
         { field: 'hoc_21', label: '21 months' },
         { field: 'hoc_24', label: '24 months' },
         { field: 'hoc_24_plus', label: '24+ months' }
+      ]
+    },
+    { 
+      type: 'License\nSuspension',
+      countField: 'license_lost_count',
+      totalField: null,
+      daysField: 'total_license_lost_days',
+      bucketPrefix: 'license_lost_',
+      buckets: [
+        { field: 'license_lost_1', label: '1 month' },
+        { field: 'license_lost_2', label: '2 months' },
+        { field: 'license_lost_3', label: '3 months' },
+        { field: 'license_lost_4', label: '4 months' },
+        { field: 'license_lost_6', label: '6 months' },
+        { field: 'license_lost_8', label: '8 months' },
+        { field: 'license_lost_10', label: '10 months' },
+        { field: 'license_lost_12', label: '12 months' },
+        { field: 'license_lost_15', label: '15 months' },
+        { field: 'license_lost_18', label: '18 months' },
+        { field: 'license_lost_21', label: '21 months' },
+        { field: 'license_lost_24', label: '24 months' },
+        { field: 'license_lost_24_plus', label: '24+ months' }
       ]
     },
   ];
@@ -387,11 +414,11 @@ export function transformMotionsData(rawData: ApiResponse): MotionData[] {
     
     // Update total counts for status (all parties)
     motionMap[motion.motion_id].status.granted += motion.accepted || 0;
-    motionMap[motion.motion_id].status.denied += motion.denied || 0;
-    motionMap[motion.motion_id].status.other += 
+    motionMap[motion.motion_id].status.denied += 
+      (motion.denied || 0) +
       (motion.no_action || 0) + 
       (motion.advisement || 0) + 
-      (motion.unknown || 0);
+      (motion.motion_id == 'dismiss' || motion.motion_id == 'suppress' ? (motion.unknown || 0) : 0);
     
     // Update total count
     motionMap[motion.motion_id].count += 

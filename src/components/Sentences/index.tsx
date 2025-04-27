@@ -17,6 +17,7 @@ const SENTENCE_TYPE_COLORS = {
   DOLLARS: '#a0ef86',
   DAYS: '#00c7c7',
   FEE: '#66bb6a',
+  FINE: '#66bb6a',
   HOC: '#ef5350',
   PROBATION: '#42a5f5',
   LICENSE: '#ffca28'
@@ -149,7 +150,8 @@ const SentencesTab = ({ data, viewMode, displayMode, selectedSentenceType, onSel
       
       // Determine color based on sentence type
       let color = SENTENCE_TYPE_COLORS.FREQUENCY;
-      if (selectedSentenceType === 'Fine') color = SENTENCE_TYPE_COLORS.FEE;
+      if (selectedSentenceType === 'Fine') color = SENTENCE_TYPE_COLORS.FINE;
+      else if (selectedSentenceType === 'FEE') color = SENTENCE_TYPE_COLORS.FEE;
       else if (selectedSentenceType === 'Incarceration') color = SENTENCE_TYPE_COLORS.HOC;
       else if (selectedSentenceType === 'Probation') color = SENTENCE_TYPE_COLORS.PROBATION;
       else if (selectedSentenceType === 'License\nSuspension') color = SENTENCE_TYPE_COLORS.LICENSE;

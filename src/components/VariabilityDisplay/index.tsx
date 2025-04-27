@@ -27,42 +27,42 @@ const VARIABILITY_CONFIG: Record<string, {
   lambdas: number[]; // [l1, l2, l3, l4]
 }> = {
   total_cases: {
-    thresholds: [0, 100, 500, 1000, 4000000],
+    thresholds: [0, 20, 100, 500, 4000000],
     percentages: [0, 20, 50, 80, 100],
     lambdas: [3, 3, 4, 100],
   },
   bench_trials: {
-    thresholds: [0, 15, 100, 500, 1000000],
+    thresholds: [0, 10, 75, 150, 1000000],
     percentages: [0, 20, 50, 80, 100],
     lambdas: [3, 3, 4, 100],
   },
   jury_trials: {
-    thresholds: [0, 15, 100, 500, 1000000],
+    thresholds: [0, 10, 75, 150, 1000000],
     percentages: [0, 20, 50, 80, 100],
     lambdas: [3, 3, 4, 100],
   },
   license_suspensions: {
-    thresholds: [0, 50, 250, 1000, 500000],
+    thresholds: [0, 50, 200, 500, 500000],
     percentages: [0, 20, 50, 80, 100],
     lambdas: [3, 3, 4, 100],
   },
   fines: {
-    thresholds: [0, 50, 250, 1000, 500000],
+    thresholds: [0, 50, 200, 500, 500000],
     percentages: [0, 20, 50, 80, 100],
     lambdas: [3, 3, 4, 100],
   },
   probation: {
-    thresholds: [0, 50, 250, 1000, 500000],
+    thresholds: [0, 50, 200, 500, 500000],
     percentages: [0, 20, 50, 80, 100],
     lambdas: [3, 3, 4, 100],
   },
   incarceration: {
-    thresholds: [0, 50, 250, 1000, 500000],
+    thresholds: [0, 50, 200, 500, 500000],
     percentages: [0, 20, 50, 80, 100],
     lambdas: [3, 3, 4, 100],
   },
   cash_bails: {
-    thresholds: [0, 50, 250, 1000, 500000],
+    thresholds: [0, 50, 200, 500, 500000],
     percentages: [0, 20, 50, 80, 100],
     lambdas: [3, 3, 4, 100],
   },

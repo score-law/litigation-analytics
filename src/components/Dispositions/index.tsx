@@ -30,7 +30,7 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
           return Math.abs(d.ratio - originalValue) < 0.01;
         }
       } else {
-        const key = trialTypeFilter === 'bench' ? 'bench' : 'jury';
+        const key = trialTypeFilter === 'bench' ? 'bench' : (trialTypeFilter == 'jury' ? 'jury' : 'none');
         if (viewMode === 'objective') {
           return Math.abs(d.trialTypeBreakdown[key] * 100 - value) < 0.01;
         } else {
@@ -46,7 +46,7 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
     // Get the appropriate count based on trial type filter
     let count = item.count || 0;
     if (trialTypeFilter !== "all" && item.trialTypeCounts) {
-      const key = trialTypeFilter === 'bench' ? 'bench' : 'jury';
+      const key = trialTypeFilter === 'bench' ? 'bench' : (trialTypeFilter == 'jury' ? 'jury' : 'none');
       count = item.trialTypeCounts[key] || 0;
     }
     
@@ -90,7 +90,7 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
       ];
     } else {
       // Filter to specific trial type
-      let trialTypeKey: 'bench' | 'jury';
+      let trialTypeKey: 'bench' | 'jury' | 'none';
       let color = '#e052b9';
       
       if (trialTypeFilter === 'bench') {
@@ -98,6 +98,9 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
         color = '#ff6491'; // Orange
       } else if (trialTypeFilter === 'jury') {
         trialTypeKey = 'jury';
+        color = '#e052b9'; // pink
+      } else if (trialTypeFilter === 'none') {
+        trialTypeKey = 'none';
         color = '#e052b9'; // pink
       }
       
@@ -134,8 +137,9 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
       <BarChartDisplay
         chartData={breakdownChartData}
         layout="horizontal"
-        xAxisLabel={viewMode === 'comparative' ? 'Disposition Rates Compared to Average' : 'Percentage of Total Cases'}
+        xAxisLabel={viewMode === 'comparative' ? 'Disposition Rates Compared to Average' : 'Percentage of Total Charges'}
         viewMode={viewMode}
+        margin={{ top: 20, bottom: 50, left: 150, right: 30 }}
         domainConfig={
           viewMode === 'objective' 
             ? { type: 'fixed', min: 0, max: 100 } // Keep fixed scale for objective

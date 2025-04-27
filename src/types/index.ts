@@ -137,15 +137,33 @@ export interface SpecificationData extends RowDataPacket {
   // Disposition-related fields
   aquittals: number;
   dismissals: number;
+  conditional_dismissals: number;
+  dismissed_lack_of_prosecution: number;
+  no_probable_cause: number;
   not_responsible: number;
   nolle_prosequis: number;
   cwof: number;
   responsible: number;
+  guilty_file: number;
   guilty_plea: number;
   guilty: number;
   other: number;
   
   // Sentence-related fields
+  fine_count: number;
+  total_fine: number;
+  fine_50: number;
+  fine_100: number;
+  fine_200: number;
+  fine_300: number;
+  fine_500: number;
+  fine_1000: number;
+  fine_2000: number;
+  fine_3000: number;
+  fine_4000: number;
+  fine_5000: number;
+  fine_5000_plus: number;
+
   fee_count: number;
   total_fee: number;
   fee_50: number;

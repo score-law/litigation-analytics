@@ -23,9 +23,16 @@ const MOTION_TYPES_CONFIG = {
   'dismiss': 'Dismiss',
   'suppress': 'Suppress', 
   'discovery': 'Discovery',
-  'bail': 'Revoke Bail (58b)',
+  'probable cause': 'Probable Cause',
+  'edit bail': 'Edit Bail',
   'dangerousness': 'Dangerousness (58a)',
   'continue': 'Continue',
+  'new trial': 'New Trial',
+  'RFNG': 'Required Finding Not Guilty',
+  'impound': 'Impound',
+  'reconsider': 'Reconsider',
+  'revoke order': 'Revoke Order',
+  'limine': 'Limine',
   'funds': 'Funds',
   'sequester': 'Sequester',
   'speedy': 'Speedy Trial',
@@ -37,13 +44,12 @@ const MOTION_TYPES_CONFIG = {
   'withdraw': 'Withdraw',
   'obtain': 'Obtain',
   'travel': 'Travel',
-  'third party records': 'Third Party Records',
   'virtual': 'Virtual',
   'record-seal': 'Record Seal',
-  'record-medical': 'Record Medical',
-  'record-criminal': 'Record Criminal',
-  'other': 'Other',
+  '': 'Other',
 };
+
+//enum('dismiss','probable cause','suppress','bill of particulars','discovery','speedy','new trial','RFNG','edit bail','dangerousness','amend charge','continue','impound','reconsider','revoke order','funds','protect','uncharged conduct','sequester','nolle prosequi','withdraw','obtain','travel','limine','virtual','record-seal','other')
 
 /**
  * Ensures all standard motion types from configuration are included in the dataset,
@@ -230,16 +236,16 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
           {
             label: '',
             data: orderedData.map(item => {
-              if (!item.comparativeRatios) return 0;
+              if (!item.comparativeRatios) return 1;
               
               if (partyFilter === 'all') {
-                return item.comparativeRatios.overall || 0;
+                return item.comparativeRatios.overall || 1;
               } else if (partyFilter === 'prosecution') {
-                return item.comparativeRatios.prosecution || 0;
+                return item.comparativeRatios.prosecution || 1;
               } else if (partyFilter === 'defense') {
-                return item.comparativeRatios.defense || 0;
+                return item.comparativeRatios.defense || 1;
               }
-              return 0;
+              return 1;
             }),
             backgroundColor: OUTCOME_COLORS.COMPARATIVE,
             valueFormatter: valueFormatter,
@@ -345,7 +351,7 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
           xAxisLabel={viewMode === 'comparative' ? 'Ratio of Motions Granted Relative to Average' : 'Number of Motions'}
           viewMode={viewMode}
           className={isExpanded ? 'expanded' : ''}
-          margin={{ top: 30, bottom: 50, left: 150, right: 80 }}
+          margin={{ top: 30, bottom: 50, left: 180, right: 80 }}
           domainConfig={
             viewMode === 'objective' 
               ? { type: 'auto' } // Keep fixed scale for objective
