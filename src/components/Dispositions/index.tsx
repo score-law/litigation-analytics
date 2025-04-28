@@ -40,7 +40,7 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
         return `${Math.abs(value).toFixed(1)}% less than average | ${count.toLocaleString()} total charges`;
       }
     } else {
-      return `${value.toFixed(0)}% of dispositions | ${count.toLocaleString()} total charges`;
+      return `${value.toFixed(1)}% of dispositions | ${count.toLocaleString()} total charges`;
     }
   };
 

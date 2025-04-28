@@ -123,7 +123,7 @@ const calculateDynamicDomain = (
 const createValueFormatterWithContext = (
   valueFormatter?: (value: number | null, context?: { dataIndex?: number | undefined; }) => string,
 ) => {
-  // If no valueFormatter, return a basic formatter
+  // If no valueFormatter or no rawData, return a basic formatter
   if (!valueFormatter) {
     return (value: number | null) => value?.toString() || '';
   }

@@ -231,12 +231,11 @@ const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
       let comparativeData: number[] = [];
 
       if (partyFilter === 'all') {
-        // Calculate percentage difference: (ratio - 1) * 100
-        comparativeData = displayData.map(item => ((item.comparativeRatios?.overall ?? 1) - 1) * 100);
+        comparativeData = displayData.map(item => ((item.comparativeRatios?.overall ?? 1)));
       } else if (partyFilter === 'prosecution') {
-        comparativeData = displayData.map(item => ((item.comparativeRatios?.prosecution ?? 1) - 1) * 100);
+        comparativeData = displayData.map(item => ((item.comparativeRatios?.prosecution ?? 1)));
       } else { // partyFilter === 'defense'
-        comparativeData = displayData.map(item => ((item.comparativeRatios?.defense ?? 1) - 1) * 100);
+        comparativeData = displayData.map(item => ((item.comparativeRatios?.defense ?? 1)));
       }
 
       datasets = [

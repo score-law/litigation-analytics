@@ -239,78 +239,72 @@ export function calculateComparativeBailData(
  * Calculates separate comparative ratios for all motions, prosecution motions, and defense motions,
  * storing them in the `comparativeRatios` field. Original counts are preserved.
  * 
+ * NOTE: This function returns a *ratio* (e.g., 3.0 for 30%/10%). The frontend is responsible for formatting
+ * the ratio as a percentage difference: (ratio - 1) * 100.
+ * 
+ * Grant rates are calculated as: granted / (granted + denied). "Other" outcomes are excluded from the denominator.
+ * If the denominator or average grant rate is zero, a neutral ratio of 1 is returned.
+ * 
  * @param data - The current motion data array.
  * @param averageData - The average motion data array.
  * @returns Motion data array with added `comparativeRatios`.
  */
 export function calculateComparativeMotionsData(
-  data: MotionData[], 
+  data: MotionData[],
   averageData: MotionData[]
 ): MotionData[] {
-  if (!data || !averageData) {
-    return data || [];
+  if (!data || !averageData) return data || [];
+
+  // Helper to safely divide two numbers, returns 1 if denominator is 0 (neutral ratio)
+  function safeDivide(numerator: number, denominator: number): number {
+    return denominator === 0 ? 1 : numerator / denominator;
+  }
+
+  // Helper to calculate grant rate: granted / (granted + denied)
+  function grantRate(granted: number = 0, denied: number = 0): number {
+    const num = granted || 0;
+    const den = (granted || 0) + (denied || 0);
+    return safeDivide(num, den);
   }
 
   // Create a map of average data for quick lookup
   const averageMap = new Map<string, MotionData>();
   averageData.forEach(item => {
-    // Ensure average items also have the necessary structures initialized if they came from transformation
-    // This guards against potential missing fields if average data source differs.
-    const avgItem = {
-        ...item,
-        status: item.status ?? { granted: 0, denied: 0, other: 0 },
-        prosecutionFiled: item.prosecutionFiled ?? { granted: 0, denied: 0, other: 0 },
-        defenseFiled: item.defenseFiled ?? { granted: 0, denied: 0, other: 0 },
-    };
-    averageMap.set(item.type, avgItem);
+    averageMap.set(item.type, item);
   });
 
   return data.map(currentMotion => {
-    const averageMotion = averageMap.get(currentMotion.type);
+    const avgMotion = averageMap.get(currentMotion.type);
 
-    // Ensure current motion also has structures initialized, defensively
-    const curItem = {
-        ...currentMotion,
-        status: currentMotion.status ?? { granted: 0, denied: 0, other: 0 },
-        prosecutionFiled: currentMotion.prosecutionFiled ?? { granted: 0, denied: 0, other: 0 },
-        defenseFiled: currentMotion.defenseFiled ?? { granted: 0, denied: 0, other: 0 },
+    // Defensive: Default all fields to zero if missing
+    const curStatus = currentMotion.status || { granted: 0, denied: 0, other: 0 };
+    const curProsecution = currentMotion.prosecutionFiled || { granted: 0, denied: 0, other: 0 };
+    const curDefense = currentMotion.defenseFiled || { granted: 0, denied: 0, other: 0 };
+
+    const avgStatus = avgMotion?.status || { granted: 0, denied: 0, other: 0 };
+    const avgProsecution = avgMotion?.prosecutionFiled || { granted: 0, denied: 0, other: 0 };
+    const avgDefense = avgMotion?.defenseFiled || { granted: 0, denied: 0, other: 0 };
+
+    // Calculate grant rates (exclude "other" outcomes)
+    const currentOverallGrantRate = grantRate(curStatus.granted, curStatus.denied);
+    const averageOverallGrantRate = grantRate(avgStatus.granted, avgStatus.denied);
+
+    const currentProsecutionGrantRate = grantRate(curProsecution.granted, curProsecution.denied);
+    const averageProsecutionGrantRate = grantRate(avgProsecution.granted, avgProsecution.denied);
+
+    const currentDefenseGrantRate = grantRate(curDefense.granted, curDefense.denied);
+    const averageDefenseGrantRate = grantRate(avgDefense.granted, avgDefense.denied);
+
+    // Comparative ratios (ratio = current / average, neutral = 1)
+    const comparativeRatios = {
+      overall: safeDivide(currentOverallGrantRate, averageOverallGrantRate),
+      prosecution: safeDivide(currentProsecutionGrantRate, averageProsecutionGrantRate),
+      defense: safeDivide(currentDefenseGrantRate, averageDefenseGrantRate),
     };
 
-    if (!averageMotion) {
-      // If no average data for this motion type, return current data with default ratios
-      return {
-        ...curItem,
-        comparativeRatios: { overall: 1, prosecution: 1, defense: 1 }
-      };
-    }
-
-    // Calculate overall comparative ratio (based on granted status)
-    const overallRatio = (averageMotion.status.granted > 0 && curItem.status.granted >= 0) 
-      ? curItem.status.granted / averageMotion.status.granted 
-      : (curItem.status.granted > 0 ? Infinity : 1); // Handle 0 average: Infinity if current > 0, else 1
-
-    // Calculate prosecution comparative ratio (based on granted status)
-    const prosecutionRatio = (averageMotion.prosecutionFiled.granted > 0 && curItem.prosecutionFiled.granted >= 0)
-      ? curItem.prosecutionFiled.granted / averageMotion.prosecutionFiled.granted
-      : (curItem.prosecutionFiled.granted > 0 ? Infinity : 1);
-
-    // Calculate defense comparative ratio (based on granted status)
-    const defenseRatio = (averageMotion.defenseFiled.granted > 0 && curItem.defenseFiled.granted >= 0)
-      ? curItem.defenseFiled.granted / averageMotion.defenseFiled.granted
-      : (curItem.defenseFiled.granted > 0 ? Infinity : 1);
-      
-    // Handle Infinity case - perhaps cap it or represent it differently if needed. Capping at a large number or using a specific flag might be options.
-    // For now, let's cap Infinity ratios at a high value like 999 for practical display.
-    const capRatio = (r: number) => isFinite(r) ? r : (r > 0 ? 999 : 1);
-
-
     return {
-      ...curItem, // Return the original motion data with counts intact
-      comparativeRatios: { // Add the calculated ratios
-        overall: capRatio(overallRatio),
-        prosecution: capRatio(prosecutionRatio),
-        defense: capRatio(defenseRatio)
-      }
+      ...currentMotion,
+      comparativeRatios,
     };
   });
 }
