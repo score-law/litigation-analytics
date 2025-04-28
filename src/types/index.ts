@@ -71,18 +71,23 @@ export interface BailDecisionData {
 
 export interface MotionData {
   type: string;
-  count: number;
-  status: {
+  count: number; // Overall count for this motion type
+  status: { // Outcomes regardless of filing party
+    granted: number;
+    denied: number;
+    other: number; // Keep 'other' for potential future use or raw data consistency if needed
+  };
+  prosecutionFiled: { // Outcomes for motions filed by 'commonwealth'
     granted: number;
     denied: number;
     other: number;
   };
-  partyFiled: {
+  defenseFiled: { // Outcomes for motions filed by 'defendant'
     granted: number;
     denied: number;
     other: number;
   };
-  comparativeRatios?: {
+  comparativeRatios?: { // Ratios compared to average, stored separately
     overall: number;
     prosecution: number;
     defense: number;

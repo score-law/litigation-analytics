@@ -13,6 +13,7 @@ import {
     SentenceData, 
     BailDecisionData, 
     MotionData,
+    ApiMotionData,
     SearchResultData,
     SpecificationData,
 } from '@/types';
@@ -379,68 +380,59 @@ export function transformBailData(rawData: ApiResponse): BailDecisionData[] {
 
 /**
  * Transforms raw motion data from the database into the format expected by the MotionsTab component.
+ * Aggregates outcomes and separates counts by overall, prosecution-filed, and defense-filed.
  * 
- * @param rawData - The raw API response data
- * @returns An array of MotionData objects
+ * @param rawData - The raw API response data, specifically the motion details.
+ * @returns An array of MotionData objects.
  */
 export function transformMotionsData(rawData: ApiResponse): MotionData[] {
   if (!rawData || !rawData.motion_data || rawData.motion_data.length === 0) {
-    console.warn('No motion data available for motions transformation');
     return [];
   }
-  
-  // Map to store motion data grouped by motion_id
-  const motionMap: Record<string, MotionData> = {};
-  
-  // Process each motion record
-  rawData.motion_data.forEach(motion => {
-    // Create a new entry in the map if it doesn't exist
-    if (!motionMap[motion.motion_id]) {
-      motionMap[motion.motion_id] = {
-        type: motion.motion_id,
-        count: 0,
-        status: {
-          granted: 0,
-          denied: 0,
-          other: 0
-        },
-        partyFiled: {
-          granted: 0,
-          denied: 0,
-          other: 0
-        }
-      };
-    }
-    
-    // Update total counts for status (all parties)
-    motionMap[motion.motion_id].status.granted += motion.accepted || 0;
-    motionMap[motion.motion_id].status.denied += 
-      (motion.denied || 0) +
-      (motion.no_action || 0) + 
-      (motion.advisement || 0) + 
-      (motion.motion_id == 'dismiss' || motion.motion_id == 'suppress' ? (motion.unknown || 0) : 0);
-    
-    // Update total count
-    motionMap[motion.motion_id].count += 
-      (motion.accepted || 0) + 
-      (motion.denied || 0) + 
-      (motion.no_action || 0) + 
-      (motion.advisement || 0) + 
-      (motion.unknown || 0);
-    
-    // Update prosecution-specific counts (commonwealth = prosecution)
-    if (motion.party === 'commonwealth') {
-      motionMap[motion.motion_id].partyFiled.granted += motion.accepted || 0;
-      motionMap[motion.motion_id].partyFiled.denied += motion.denied || 0;
-      motionMap[motion.motion_id].partyFiled.other += 
-        (motion.no_action || 0) + 
-        (motion.advisement || 0) + 
-        (motion.unknown || 0);
-    }
+
+  const motionMap = new Map<string, MotionData>();
+
+  // Define a helper to initialize motion data structure
+  const initializeMotion = (type: string): MotionData => ({
+    type: type,
+    count: 0,
+    status: { granted: 0, denied: 0, other: 0 }, // Overall
+    prosecutionFiled: { granted: 0, denied: 0, other: 0 }, // Commonwealth
+    defenseFiled: { granted: 0, denied: 0, other: 0 }, // Defendant
   });
-  
-  // Convert map to array
-  return Object.values(motionMap);
+
+  rawData.motion_data.forEach((motion: ApiMotionData) => {
+    const motionType = motion.motion_id || 'other'; // Use 'other' if type is null/empty
+
+    // Get or initialize the motion data object
+    if (!motionMap.has(motionType)) {
+      motionMap.set(motionType, initializeMotion(motionType));
+    }
+    const currentMotion = motionMap.get(motionType)!;
+
+    // Aggregate counts
+    const grantedCount = motion.accepted || 0;
+    // Combine denied, no_action, advisement, unknown into a single 'denied' figure for simplicity
+    const deniedCount = (motion.denied || 0) + (motion.no_action || 0) + (motion.advisement || 0) + (motion.unknown || 0);
+    const totalForThisEntry = grantedCount + deniedCount;
+
+    // Increment overall count and status
+    currentMotion.count += totalForThisEntry;
+    currentMotion.status.granted += grantedCount;
+    currentMotion.status.denied += deniedCount;
+
+    // Increment party-specific counts
+    if (motion.party === 'commonwealth') {
+      currentMotion.prosecutionFiled.granted += grantedCount;
+      currentMotion.prosecutionFiled.denied += deniedCount;
+    } else if (motion.party === 'defendant') {
+      currentMotion.defenseFiled.granted += grantedCount;
+      currentMotion.defenseFiled.denied += deniedCount;
+    }
+    // Note: Motions filed by other parties contribute to the overall 'status' but not to 'prosecutionFiled' or 'defenseFiled'.
+  });
+
+  return Array.from(motionMap.values());
 }
 
 /**

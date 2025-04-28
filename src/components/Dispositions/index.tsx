@@ -12,34 +12,11 @@ interface DispositionsTabProps {
 const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabProps) => {
 
   // Create a unified value formatter that handles both modes
-  const valueFormatter = (value: number | null) => {
-    if (value === null) return '';
+  const valueFormatter = (value: number | null, context?: { dataIndex?: number }) => {
+    if (value === null || context?.dataIndex === undefined) return '';
     
-    // Find the disposition item that matches this value
-    // In BarChartDisplay, comparative values are transformed to (val - 1) * 100
-    // We need to account for this transformation when matching
-    const item = data.find(d => {
-      if (trialTypeFilter === "all") {
-        if (viewMode === 'objective') {
-          // In objective mode, values are displayed as percentages (0-100)
-          return Math.abs(d.ratio * 100 - value) < 0.01;
-        } else {
-          // In comparative mode, values are transformed to (val - 1) * 100
-          // So we need to transform back: value/100 + 1
-          const originalValue = value / 100 + 1;
-          return Math.abs(d.ratio - originalValue) < 0.01;
-        }
-      } else {
-        const key = trialTypeFilter === 'bench' ? 'bench' : (trialTypeFilter == 'jury' ? 'jury' : 'none');
-        if (viewMode === 'objective') {
-          return Math.abs(d.trialTypeBreakdown[key] * 100 - value) < 0.01;
-        } else {
-          // Transform back for comparative mode
-          const originalValue = value / 100 + 1;
-          return Math.abs(d.trialTypeBreakdown[key] - originalValue) < 0.01;
-        }
-      }
-    });
+    // Get the disposition item directly using the dataIndex
+    const item = data[context.dataIndex];
     
     if (!item) return '';
     
@@ -58,9 +35,9 @@ const DispositionsTab = ({ data, viewMode, trialTypeFilter }: DispositionsTabPro
       if (value === 0) {
         return `Same as average | ${count.toLocaleString()} total charges`;
       } else if (value > 0) {
-        return `${Math.abs(value).toFixed(0)}% above average | ${count.toLocaleString()} total charges`;
+        return `${value.toFixed(1)}% more than average | ${count.toLocaleString()} total charges`;
       } else {
-        return `${Math.abs(value).toFixed(0)}% below average | ${count.toLocaleString()} total charges`;
+        return `${Math.abs(value).toFixed(1)}% less than average | ${count.toLocaleString()} total charges`;
       }
     } else {
       return `${value.toFixed(0)}% of dispositions | ${count.toLocaleString()} total charges`;

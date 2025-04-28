@@ -33,21 +33,11 @@ interface SentencesTabProps {
 
 const SentencesTab = ({ data, viewMode, displayMode, selectedSentenceType, onSelectedSentenceTypeChange }: SentencesTabProps) => {
   // Create frequency formatter for percentage values
-  const frequencyValueFormatter = (value: number | null) => {
-    if (value === null) return '';
+  const frequencyValueFormatter = (value: number | null, context?: { dataIndex?: number }) => {
+    if (value === null || context?.dataIndex === undefined) return '';
     
-    // Find the matching data item using fuzzy matching
-    const item = data.find(d => {
-      if (viewMode === 'objective') {
-        // In objective mode, directly match the percentage
-        return Math.abs(d.percentage - value) < 0.01;
-      } else {
-        // In comparative mode, the value is transformed to (value - 1) * 100
-        // We need to transform back: value/100 + 1
-        const originalValue = value / 100 + 1;
-        return Math.abs(d.percentage - originalValue) < 0.01;
-      }
-    });
+    // Get the item directly using the dataIndex
+    const item = data[context.dataIndex];
     
     if (!item) return '';
     
@@ -58,46 +48,35 @@ const SentencesTab = ({ data, viewMode, displayMode, selectedSentenceType, onSel
       if (Math.abs(value) < 0.01) {
         return `Same as average | ${count.toLocaleString()} Sentences Found`;
       } else if (value > 0) {
-        return `${Math.abs(value).toFixed(1)}% above average | ${count.toLocaleString()} Sentences Found`;
+        return `${value.toFixed(1)}% more than average | ${count.toLocaleString()} Sentences Found`;
       } else {
-        return `${Math.abs(value).toFixed(1)}% below average | ${count.toLocaleString()} Sentences Found`;
+        return `${Math.abs(value).toFixed(1)}% less than average | ${count.toLocaleString()} Sentences Found`;
       }
     } else {
       return `${value.toFixed(1)}% | ${count.toLocaleString()} Sentences Found`;
     }
   };
 
-  // Create formatter for buckets tooltip
-  const bucketValueFormatter = (value: number | null) => {
-    if (value === null) return '';
+  // Replace the existing bucketValueFormatter function
+  const bucketValueFormatter = (value: number | null, context?: { dataIndex?: number }) => {
+    if (value === null || context?.dataIndex === undefined) return '';
     
     // Find the selected sentence type item to get the buckets
     const sentenceItem = data.find(item => item.type.includes(selectedSentenceType));
     if (!sentenceItem || !sentenceItem.sentenceBuckets) return '';
     
-    // Find the matching bucket
-    const bucket = sentenceItem.sentenceBuckets.find(b => {
-      if (viewMode === 'objective') {
-        // Use nullish coalescing to handle undefined percentage
-        const bucketPct = b.percentage ?? 0;
-        return Math.abs(bucketPct - value) < 0.01;
-      } else {
-        // In comparative mode, convert back from the transformed value
-        const originalValue = value / 100 + 1;
-        const bucketPct = b.percentage ?? 0;
-        return Math.abs(bucketPct - originalValue) < 0.01;
-      }
-    });
+    // Get the bucket directly using the dataIndex
+    const bucket = sentenceItem.sentenceBuckets[context.dataIndex];
     
     if (!bucket) return '';
     
     if (viewMode === 'comparative') {
       if (Math.abs(value) < 0.01) {
-        return `Same as average | ${bucket.count.toLocaleString()} ${selectedSentenceType}s`;
+        return `Same as average | ${bucket.count.toLocaleString()} total sentences`;
       } else if (value > 0) {
-        return `${Math.abs(value).toFixed(1)}% above average | ${bucket.count.toLocaleString()} ${selectedSentenceType}s`;
+        return `${value.toFixed(1)}% more than average | ${bucket.count.toLocaleString()} total sentences`;
       } else {
-        return `${Math.abs(value).toFixed(1)}% below average | ${bucket.count.toLocaleString()} ${selectedSentenceType}s`;
+        return `${Math.abs(value).toFixed(1)}% less than average | ${bucket.count.toLocaleString()} total sentences`;
       }
     } else {
       // Handle potentially undefined percentage

@@ -62,7 +62,7 @@ interface BarChartDisplayProps {
       color?: string;
       backgroundColor?: string;      
       stack?: string;
-      valueFormatter?: (value: number | null) => string;
+      valueFormatter?: (value: number | null, context?: { dataIndex?: number | undefined; }) => string;
       highlightScope?: { highlighted: string; faded: string };
     }>;
   };
@@ -72,7 +72,7 @@ interface BarChartDisplayProps {
   margin?: { top: number; bottom: number; left: number; right: number };
   className?: string;
   domainConfig?: DomainConfig;
-  preserveStackInComparative?: boolean; 
+  preserveStackInComparative?: boolean;
 }
 
 /**
@@ -113,6 +113,26 @@ const calculateDynamicDomain = (
     (typeof safeguardMin === 'number' ? safeguardMin : 0); // For objective, use safeguardMin or 0
   
   return { min: domainMin, max: domainMax };
+};
+
+/**
+ * Creates a wrapper for valueFormatter functions to provide dataIndex context
+ * @param valueFormatter The original valueFormatter function
+ * @returns A new valueFormatter function that passes dataIndex context
+ */
+const createValueFormatterWithContext = (
+  valueFormatter?: (value: number | null, context?: { dataIndex?: number | undefined; }) => string,
+) => {
+  // If no valueFormatter, return a basic formatter
+  if (!valueFormatter) {
+    return (value: number | null) => value?.toString() || '';
+  }
+  
+  // Return a new formatter that passes the dataIndex context
+  return (value: number | null, context?: { dataIndex?: number }) => {
+    // Pass the dataIndex context to the original formatter
+    return valueFormatter(value, context);
+  };
 };
 
 const BarChartDisplay = ({
@@ -168,7 +188,7 @@ const BarChartDisplay = ({
     const color = dataset.backgroundColor || dataset.color || CHART_COLORS[index % CHART_COLORS.length];
     
     // Adjust the valueFormatter based on viewMode to retain above/below identification
-    const valueFormatter = dataset.valueFormatter;
+    const valueFormatter = createValueFormatterWithContext(dataset.valueFormatter);
     
     return {
       data: transformedData,

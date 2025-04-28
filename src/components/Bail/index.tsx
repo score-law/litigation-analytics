@@ -5,7 +5,6 @@
  * It shows the percentage of each bail decision type and the average costs.
  */
 import { useMemo } from 'react';
-import { Box } from '@mui/material';
 import { BailDecisionData } from '@/types';
 import { ViewMode } from '@/types';
 import BarChartDisplay from '@/components/BarChartDisplay';
@@ -24,21 +23,11 @@ interface BailTabProps {
 
 const BailTab = ({ data, viewMode, displayMode }: BailTabProps) => {
   // Create formatter for bail percentage values
-  const bailPercentageFormatter = (value: number | null) => {
-    if (value === null) return '';
+  const bailPercentageFormatter = (value: number | null, context?: { dataIndex?: number }) => {
+    if (value === null || context?.dataIndex === undefined) return '';
     
-    // Find the matching data item using fuzzy matching
-    const item = data.find(d => {
-      if (viewMode === 'objective') {
-        // In objective mode, directly match the percentage
-        return Math.abs(d.percentage - value) < 0.01;
-      } else {
-        // In comparative mode, the value is transformed to (value - 1) * 100
-        // We need to transform back: value/100 + 1
-        const originalValue = value / 100 + 1;
-        return Math.abs(d.percentage - originalValue) < 0.01;
-      }
-    });
+    // Get the item directly using the dataIndex
+    const item = data[context.dataIndex];
     
     if (!item) return '';
     
@@ -49,36 +38,25 @@ const BailTab = ({ data, viewMode, displayMode }: BailTabProps) => {
       if (Math.abs(value) < 0.01) {
         return `Same as average | ${count.toLocaleString()} Bail Decisions`;
       } else if (value > 0) {
-        return `${Math.abs(value).toFixed(1)}% above average | ${count.toLocaleString()} Bail Decisions`;
+        return `${value.toFixed(1)}% more than average | ${count.toLocaleString()} Bail Decisions`;
       } else {
-        return `${Math.abs(value).toFixed(1)}% below average | ${count.toLocaleString()} Bail Decisions`;
+        return `${Math.abs(value).toFixed(1)}% less than average | ${count.toLocaleString()} Bail Decisions`;
       }
     } else {
       return `${value.toFixed(1)}% | ${count.toLocaleString()} Bail Decisions`;
     }
   };
 
-  // Formatter for bail bucket tooltips
-  const bailBucketFormatter = (value: number | null) => {
-    if (value === null) return '';
+  // Replace the existing bailBucketFormatter function
+  const bailBucketFormatter = (value: number | null, context?: { dataIndex?: number }) => {
+    if (value === null || context?.dataIndex === undefined) return '';
     
     // Find the cash bail item to get the buckets
     const cashBailItem = data.find(item => item.type === 'Cash Bail');
     if (!cashBailItem || !cashBailItem.bailBuckets) return '';
     
-    // Find the matching bucket
-    const bucket = cashBailItem.bailBuckets.find(b => {
-      if (viewMode === 'objective') {
-        // Use nullish coalescing to handle undefined percentage
-        const bucketPct = b.percentage ?? 0;
-        return Math.abs(bucketPct - value) < 0.01;
-      } else {
-        // In comparative mode, convert back from the transformed value
-        const originalValue = value / 100 + 1;
-        const bucketPct = b.percentage ?? 0;
-        return Math.abs(bucketPct - originalValue) < 0.01;
-      }
-    });
+    // Get the bucket directly using the dataIndex
+    const bucket = cashBailItem.bailBuckets[context.dataIndex];
     
     if (!bucket) return '';
     
@@ -86,9 +64,9 @@ const BailTab = ({ data, viewMode, displayMode }: BailTabProps) => {
       if (Math.abs(value) < 0.01) {
         return `Same as average | ${bucket.count.toLocaleString()} Bail Decisions`;
       } else if (value > 0) {
-        return `${Math.abs(value).toFixed(1)}% above average | ${bucket.count.toLocaleString()} Bail Decisions`;
+        return `${value.toFixed(1)}% more than average | ${bucket.count.toLocaleString()} Bail Decisions`;
       } else {
-        return `${Math.abs(value).toFixed(1)}% below average | ${bucket.count.toLocaleString()} Bail Decisions`;
+        return `${Math.abs(value).toFixed(1)}% less than average | ${bucket.count.toLocaleString()} Bail Decisions`;
       }
     } else {
       // Handle potentially undefined percentage

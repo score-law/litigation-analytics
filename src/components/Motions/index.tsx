@@ -76,7 +76,9 @@ const ensureAllMotionTypes = (motionData: MotionData[]): MotionData[] => {
         type: motionType,
         count: 0,
         status: { granted: 0, denied: 0, other: 0 },
-        partyFiled: { granted: 0, denied: 0, other: 0 }
+        prosecutionFiled: { granted: 0, denied: 0, other: 0 },
+        defenseFiled: { granted: 0, denied: 0, other: 0 },
+        comparativeRatios: { overall: 1, prosecution: 1, defense: 1 }, // Default to 1 (no difference)
       });
     }
   });
@@ -98,239 +100,160 @@ interface MotionsTabProps {
 const MotionsTab = ({ data, viewMode, partyFilter }: MotionsTabProps) => {
   
   const [isExpanded, setIsExpanded] = useState(false);
+  const initialDisplayCount = 8;
 
-  // Create a unified value formatter that handles both modes
-  const valueFormatter = (value: number | null) => {
-    if (value === null || value === undefined) return '';
-    
-    // For objective mode (stacked bars)
-    if (viewMode === 'objective') {
-      // Since we're using stacked bars, we need to match the value with either granted or denied count
-      // for the correct motion type based on the current dataset
-      let matchingMotion = null;
-      let isGranted = false;
-      
-      // Find the motion and determine if this is a granted or denied value
-      for (const motion of data) {
-        if (partyFilter === 'all' && (motion.status.granted === value || motion.status.denied === value)) {
-          matchingMotion = motion;
-          isGranted = motion.status.granted === value;
-          break;
-        } else if (partyFilter === 'prosecution' && (motion.partyFiled.granted === value || motion.partyFiled.denied === value)) {
-          matchingMotion = motion;
-          isGranted = motion.partyFiled.granted === value;
-          break;
-        } else if (partyFilter === 'defense') {
-          const defenseGranted = motion.status.granted - motion.partyFiled.granted;
-          const defenseDenied = motion.status.denied - motion.partyFiled.denied;
-          if (defenseGranted === value || defenseDenied === value) {
-            matchingMotion = motion;
-            isGranted = defenseGranted === value;
-            break;
-          }
-        }
-      }
-      
-      if (!matchingMotion) return '';
-      
-      // Get the count and total based on party filter
-      let count = 0;
-      let total = 0;
-      
-      if (partyFilter === 'all') {
-        count = isGranted ? matchingMotion.status.granted : matchingMotion.status.denied;
-        total = matchingMotion.status.granted + matchingMotion.status.denied;
-      } else if (partyFilter === 'prosecution') {
-        count = isGranted ? matchingMotion.partyFiled.granted : matchingMotion.partyFiled.denied;
-        total = matchingMotion.partyFiled.granted + matchingMotion.partyFiled.denied;
-      } else if (partyFilter === 'defense') {
-        const defenseGranted = matchingMotion.status.granted - matchingMotion.partyFiled.granted;
-        const defenseDenied = matchingMotion.status.denied - matchingMotion.partyFiled.denied;
-        count = isGranted ? defenseGranted : defenseDenied;
-        total = defenseGranted + defenseDenied;
-      }
-      
-      // Calculate percentage relative to total motions filed of this type with this party filter
-      const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
-      
-      return `${count.toLocaleString()} motions | ${percentage}%`;
-    } 
-    // For comparative mode
-    else {
-      // In BarChartDisplay, comparative values are transformed to (val - 1) * 100
-      // We need to convert back to original ratio: value/100 + 1
-      const originalRatio = value / 100 + 1;
-      
-      // Find the motion with the closest matching ratio based on party filter
-      const matchingMotion = data.find(motion => {
-        if (!motion.comparativeRatios) return false;
-        
-        let motionRatio = 0;
-        if (partyFilter === 'all') {
-          motionRatio = motion.comparativeRatios.overall || 0;
-        } else if (partyFilter === 'prosecution') {
-          motionRatio = motion.comparativeRatios.prosecution || 0;
-        } else if (partyFilter === 'defense') {
-          motionRatio = motion.comparativeRatios.defense || 0;
-        }
-        
-        // Use approximate matching with a small tolerance
-        return Math.abs(motionRatio - originalRatio) < 0.01;
-      });
-      
-      if (!matchingMotion) return '';
-      
-      // Format for comparative view (above/below average)
-      if (Math.abs(value) < 1) {
-        return `Same as average | ${matchingMotion.count.toLocaleString()} motions filed`;
-      } else if (value > 0) {
-        return `${Math.abs(value).toFixed(0)}% above average | ${matchingMotion.count.toLocaleString()} motions filed`;
-      } else {
-        return `${Math.abs(value).toFixed(0)}% below average | ${matchingMotion.count.toLocaleString()} motions filed`;
-      }
-    }
-  };
+  // Ensure all standard motion types are present and sort
+  const processedData = useMemo(() => {
+    const ensuredData = ensureAllMotionTypes(data);
+    // Sort based on the configuration order, keeping others at the end
+    const motionOrder = Object.keys(MOTION_TYPES_CONFIG);
+    return ensuredData.sort((a, b) => {
+      const indexA = motionOrder.indexOf(a.type);
+      const indexB = motionOrder.indexOf(b.type);
+      if (indexA === -1 && indexB === -1) return 0; // Keep relative order of unknown types
+      if (indexA === -1) return 1; // Unknown types go after known types
+      if (indexB === -1) return -1; // Known types go before unknown types
+      return indexA - indexB; // Sort known types by config order
+    });
+  }, [data]);
+
+  // Apply expansion limit
+  const displayData = useMemo(() => {
+    return isExpanded ? processedData : processedData.slice(0, initialDisplayCount);
+  }, [processedData, isExpanded, initialDisplayCount]);
 
   // Process data for the chart
   const motionsChartData = useMemo(() => {
-    if (!data || data.length === 0) {
+    if (!displayData || displayData.length === 0) {
       return { labels: [], datasets: [] };
     }
-    
-    // Ensure all standard motion types are included
-    const completeData = ensureAllMotionTypes(data);
-    
-    // Sort motions: configured motions first in config order, then others alphabetically
-    const sortedData = completeData.sort((a, b) => {
-      const aIndex = Object.keys(MOTION_TYPES_CONFIG).indexOf(a.type);
-      const bIndex = Object.keys(MOTION_TYPES_CONFIG).indexOf(b.type);
-      
-      // If both are in the config, sort by config order
-      if (aIndex !== -1 && bIndex !== -1) {
-        return aIndex - bIndex;
-      }
-      // If only a is in config, it comes first
-      if (aIndex !== -1) return -1;
-      // If only b is in config, it comes first
-      if (bIndex !== -1) return 1;
-      // Otherwise sort alphabetically
-      return a.type.localeCompare(b.type);
-    });
-    
-    // If not expanded, only show the first 8 motion types
-    const orderedData = isExpanded ? sortedData : sortedData.slice(0, 8);
-    
-    // Use custom display names from configuration or capitalize first letter as fallback
-    const labels = orderedData.map(item => {
-      if (item.type in MOTION_TYPES_CONFIG) {
-        return MOTION_TYPES_CONFIG[item.type as keyof typeof MOTION_TYPES_CONFIG];
-      }
-      return item.type.charAt(0).toUpperCase() + item.type.slice(1);
-    });
 
-    // Handle comparative view using the clearer structure
-    if (viewMode === 'comparative') {
-      return {
-        labels,
-        datasets: [
-          {
-            label: '',
-            data: orderedData.map(item => {
-              if (!item.comparativeRatios) return 1;
-              
-              if (partyFilter === 'all') {
-                return item.comparativeRatios.overall || 1;
-              } else if (partyFilter === 'prosecution') {
-                return item.comparativeRatios.prosecution || 1;
-              } else if (partyFilter === 'defense') {
-                return item.comparativeRatios.defense || 1;
-              }
-              return 1;
-            }),
-            backgroundColor: OUTCOME_COLORS.COMPARATIVE,
-            valueFormatter: valueFormatter,
-          }
-        ]
-      };
+    // Create labels from motion types using the config for display names
+    const labels = displayData.map(item => MOTION_TYPES_CONFIG[item.type as keyof typeof MOTION_TYPES_CONFIG] || item.type);
+
+    /**
+     * Generates tooltip content based on view mode and data context.
+     * Uses dataIndex provided by the chart context for accurate data lookup.
+     * @param value - The raw value of the bar segment (count in objective, % diff in comparative).
+     * @param context - Context object provided by MUI Charts, includes dataIndex.
+     * @returns Formatted string for the tooltip.
+     */
+    const valueFormatter = (value: number | null, context?: { dataIndex?: number }) => {
+      // Basic validation for value and context
+      if (value === null || value === undefined || context?.dataIndex === undefined) return '';
+
+      // Retrieve the corresponding motion data item using the dataIndex
+      const item = displayData[context.dataIndex];
+      if (!item) return ''; // Exit if data item not found
+
+      // Objective mode: Show count and percentage of Granted/Denied for the filtered party
+      if (viewMode === 'objective') {
+        let grantedCount = 0;
+        let deniedCount = 0;
+
+        // Determine counts based on the party filter
+        if (partyFilter === 'all') {
+          grantedCount = item.status.granted;
+          deniedCount = item.status.denied;
+        } else if (partyFilter === 'prosecution') {
+          grantedCount = item.prosecutionFiled.granted;
+          deniedCount = item.prosecutionFiled.denied;
+        } else if (partyFilter === 'defense') {
+          grantedCount = item.defenseFiled.granted;
+          deniedCount = item.defenseFiled.denied;
+        }
+
+        // Calculate total relevant motions for percentage calculation
+        const total = grantedCount + deniedCount;
+        // Calculate percentage; handle division by zero
+        const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+
+        // Return formatted string: "Count motions | Percentage%"
+        return `${value.toLocaleString()} motions | ${percentage}%`;
+      }
+      // Comparative mode: Show difference from average and total count
+      else {
+        // Retrieve the total count for this motion type
+        const count = item.count || 0;
+        let differenceText = '';
+
+        // Format the percentage difference text
+        if (Math.abs(value) < 1) { // Use a small threshold for "Same as average"
+          differenceText = 'Same as average';
+        } else if (value > 0) {
+          differenceText = `${Math.abs(value).toFixed(0)}% above average`;
+        } else { // value < 0
+          differenceText = `${Math.abs(value).toFixed(0)}% below average`;
+        }
+
+        // Return formatted string: "Difference Text | Total Count motions filed"
+        return `${differenceText} | ${count.toLocaleString()} motions filed`;
+      }
+    };
+
+
+    let datasets = [];
+
+    if (viewMode === 'objective') {
+      // Objective view: Stacked bars for Granted/Denied based on party filter
+      let grantedData: number[] = [];
+      let deniedData: number[] = [];
+
+      if (partyFilter === 'all') {
+        grantedData = displayData.map(item => item.status.granted);
+        deniedData = displayData.map(item => item.status.denied);
+      } else if (partyFilter === 'prosecution') {
+        grantedData = displayData.map(item => item.prosecutionFiled.granted);
+        deniedData = displayData.map(item => item.prosecutionFiled.denied);
+      } else { // partyFilter === 'defense'
+        grantedData = displayData.map(item => item.defenseFiled.granted);
+        deniedData = displayData.map(item => item.defenseFiled.denied);
+      }
+
+      datasets = [
+        {
+          label: 'Granted',
+          data: grantedData,
+          backgroundColor: OUTCOME_COLORS.GRANTED,
+          stack: 'total', // Stack granted and denied
+          valueFormatter: valueFormatter // Assign the formatter
+        },
+        {
+          label: 'Denied',
+          data: deniedData,
+          backgroundColor: OUTCOME_COLORS.DENIED,
+          stack: 'total', // Stack granted and denied
+          valueFormatter: valueFormatter // Assign the formatter
+        }
+      ];
+    } else {
+      // Comparative view: Single bar showing % difference from average
+      let comparativeData: number[] = [];
+
+      if (partyFilter === 'all') {
+        // Calculate percentage difference: (ratio - 1) * 100
+        comparativeData = displayData.map(item => ((item.comparativeRatios?.overall ?? 1) - 1) * 100);
+      } else if (partyFilter === 'prosecution') {
+        comparativeData = displayData.map(item => ((item.comparativeRatios?.prosecution ?? 1) - 1) * 100);
+      } else { // partyFilter === 'defense'
+        comparativeData = displayData.map(item => ((item.comparativeRatios?.defense ?? 1) - 1) * 100);
+      }
+
+      datasets = [
+        {
+          label: 'Comparison to Average', // Label for the legend (optional)
+          data: comparativeData,
+          backgroundColor: OUTCOME_COLORS.COMPARATIVE, // Use a distinct color for comparative
+          valueFormatter: valueFormatter // Assign the formatter
+        }
+      ];
     }
-    
-    // Handle objective view with stacked bars
-    if (partyFilter === "all") {
-      return {
-        labels,
-        datasets: [
-          {
-            label: 'Granted',
-            data: orderedData.map(item => item.status.granted),
-            backgroundColor: OUTCOME_COLORS.GRANTED,
-            stack: 'stack1',
-            valueFormatter: valueFormatter,
-          },
-          {
-            label: 'Denied',
-            data: orderedData.map(item => item.status.denied),
-            backgroundColor: OUTCOME_COLORS.DENIED,
-            stack: 'stack1',
-            valueFormatter: valueFormatter,
-          }
-        ]
-      };
-    } 
-    else if (partyFilter === "prosecution") {
-      return {
-        labels,
-        datasets: [
-          {
-            label: 'Granted',
-            data: orderedData.map(item => item.partyFiled.granted),
-            backgroundColor: OUTCOME_COLORS.GRANTED,
-            stack: 'stack1',
-            valueFormatter: valueFormatter,
-          },
-          {
-            label: 'Denied',
-            data: orderedData.map(item => item.partyFiled.denied),
-            backgroundColor: OUTCOME_COLORS.DENIED,
-            stack: 'stack1',
-            valueFormatter: valueFormatter,
-          }
-        ]
-      };
-    }
-    else if (partyFilter === "defense") {
-      return {
-        labels,
-        datasets: [
-          {
-            label: 'Granted',
-            data: orderedData.map(item => {
-              const defenseGranted = item.status.granted - item.partyFiled.granted;
-              return defenseGranted > 0 ? defenseGranted : 0;
-            }),
-            backgroundColor: OUTCOME_COLORS.GRANTED,
-            stack: 'stack1',
-            valueFormatter: valueFormatter,
-          },
-          {
-            label: 'Denied',
-            data: orderedData.map(item => {
-              const defenseDenied = item.status.denied - item.partyFiled.denied;
-              return defenseDenied > 0 ? defenseDenied : 0;
-            }),
-            backgroundColor: OUTCOME_COLORS.DENIED,
-            stack: 'stack1',
-            valueFormatter: valueFormatter,
-          }
-        ]
-      };
-    }
-    
-    // Default empty return if no filter matches
+
     return {
       labels,
-      datasets: []
+      datasets
     };
-  }, [data, viewMode, partyFilter, isExpanded]);
+  }, [displayData, viewMode, partyFilter]);
 
   // If no data, display a message
   if (!data || data.length === 0) {
