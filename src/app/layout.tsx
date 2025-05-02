@@ -3,7 +3,7 @@ import "./globals.scss";
 
 // components
 import Footer from "@/components/Footer";
-import PasswordProtection from "@/components/PasswordProtection";
+//import PasswordProtection from "@/components/PasswordProtection";
 import { PostHogProvider } from "@/components/PostHogProvider";
 
 import { Inter } from 'next/font/google'
@@ -26,10 +26,10 @@ export default function RootLayout({
     <html lang="en" className={inter.className}>
       <body>
         <PostHogProvider>
-          <PasswordProtection>
+          {/*<PasswordProtection>*/}
             <main>{children}</main>
             <Footer />
-          </PasswordProtection>
+          {/*</PasswordProtection>*/}
         </PostHogProvider>
       </body>
     </html>

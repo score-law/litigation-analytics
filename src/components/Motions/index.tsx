@@ -46,7 +46,7 @@ const MOTION_TYPES_CONFIG = {
   'travel': 'Travel',
   'virtual': 'Virtual',
   'record-seal': 'Record Seal',
-  '': 'Other',
+  'other': 'Other',
 };
 
 //enum('dismiss','probable cause','suppress','bill of particulars','discovery','speedy','new trial','RFNG','edit bail','dangerousness','amend charge','continue','impound','reconsider','revoke order','funds','protect','uncharged conduct','sequester','nolle prosequi','withdraw','obtain','travel','limine','virtual','record-seal','other')
