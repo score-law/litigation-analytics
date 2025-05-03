@@ -26,10 +26,10 @@ export default function RootLayout({
     <html lang="en" className={inter.className}>
       <body>
         <PostHogProvider>
-          {/*<PasswordProtection>*/}
+          <PasswordProtection>
             <main>{children}</main>
             <Footer />
-          {/*</PasswordProtection>*/}
+          </PasswordProtection>
         </PostHogProvider>
       </body>
     </html>
