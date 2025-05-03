@@ -3,7 +3,7 @@ import "./globals.scss";
 
 // components
 import Footer from "@/components/Footer";
-//import PasswordProtection from "@/components/PasswordProtection";
+import PasswordProtection from "@/components/PasswordProtection";
 import { PostHogProvider } from "@/components/PostHogProvider";
 
 import { Inter } from 'next/font/google'
